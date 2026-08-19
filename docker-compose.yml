@@ -75,6 +75,16 @@ services:
     networks:
       - backend
 
+  migrate:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://docclassifier:docclassifier_dev_pw@db:5432/docclassifier
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
 volumes:
   pgdata:
   miniodata:
