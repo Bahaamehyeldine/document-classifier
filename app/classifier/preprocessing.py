@@ -1,9 +1,10 @@
 """Image preprocessing shared by training (Colab) and inference (worker).
 
-The Colab notebook copies this exact transform. If you change it here, retrain:
+The Colab notebook imports this module. If you change it here, retrain:
 the golden-set replay test will fail otherwise, which is the point.
 """
 
+import io
 from pathlib import Path
 
 import torch
@@ -28,6 +29,11 @@ EVAL_TRANSFORM = v2.Compose(
 )
 
 
+def _as_rgb(img: Image.Image) -> Image.Image:
+    img.seek(0)  # multi-page TIFFs: first page only
+    return img.convert("L").convert("RGB")
+
+
 def load_image(path: str | Path) -> Image.Image:
     """Open a scanned page (usually a grayscale TIFF) as a 3-channel image.
 
@@ -35,8 +41,13 @@ def load_image(path: str | Path) -> Image.Image:
     the ImageNet-pretrained stem sees the channel count it expects.
     """
     with Image.open(path) as img:
-        img.seek(0)  # multi-page TIFFs: first page only
-        return img.convert("L").convert("RGB")
+        return _as_rgb(img)
+
+
+def load_image_bytes(data: bytes) -> Image.Image:
+    """Same as load_image, for bytes fetched from blob storage."""
+    with Image.open(io.BytesIO(data)) as img:
+        return _as_rgb(img)
 
 
 def to_tensor(img: Image.Image) -> torch.Tensor:

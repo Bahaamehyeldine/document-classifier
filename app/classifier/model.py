@@ -1,19 +1,14 @@
 """Load the fine-tuned ConvNeXt classifier and run inference.
 
-The worker (and the api, for its startup check) call `load_classifier()`.
-It refuses to return a model unless:
-  * the weights file exists,
-  * its SHA-256 matches the model card,
-  * the model card's full-test top-1 is at least MIN_TEST_TOP1
-    (the threshold committed in the README).
-Any failure raises ClassifierStartupError, so the process exits instead of
-serving predictions from the wrong weights.
+`load_classifier()` first runs `verify_artifacts()` (weights present, SHA-256
+matches the model card, test top-1 at or above the README gate, class list and
+backbone as expected) and only then loads the weights. Any failure raises
+ClassifierStartupError, so the worker exits instead of serving predictions
+from the wrong weights.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -21,27 +16,22 @@ import torch
 from PIL import Image, ImageDraw, ImageFont
 from torchvision import models
 
+from app.classifier.artifacts import (  # noqa: F401  (re-exported for callers and tests)
+    MIN_TEST_TOP1,
+    MODEL_CARD_PATH,
+    REVIEW_CONFIDENCE_THRESHOLD,
+    WEIGHTS_PATH,
+    ClassifierStartupError,
+    sha256_file,
+    verify_artifacts,
+)
 from app.classifier.labels import NUM_CLASSES, RVL_CDIP_CLASSES
 from app.classifier.preprocessing import load_image, to_tensor
-
-CLASSIFIER_DIR = Path(__file__).resolve().parent
-WEIGHTS_PATH = CLASSIFIER_DIR / "models" / "classifier.pt"
-MODEL_CARD_PATH = CLASSIFIER_DIR / "models" / "model_card.json"
-
-# Keep in sync with the "Model quality gate" line in README.md.
-MIN_TEST_TOP1 = 0.85
-
-# Predictions below this top-1 confidence are open to reviewer relabeling.
-REVIEW_CONFIDENCE_THRESHOLD = 0.7
 
 BACKBONES = {
     "convnext_tiny": models.convnext_tiny,
     "convnext_small": models.convnext_small,
 }
-
-
-class ClassifierStartupError(RuntimeError):
-    """Raised when the classifier must not start."""
 
 
 @dataclass(frozen=True)
@@ -54,14 +44,6 @@ class Prediction:
     @property
     def needs_review(self) -> bool:
         return self.confidence < REVIEW_CONFIDENCE_THRESHOLD
-
-
-def sha256_file(path: Path, chunk_size: int = 1 << 20) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        while chunk := fh.read(chunk_size):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def build_model(backbone: str) -> torch.nn.Module:
@@ -86,8 +68,8 @@ class DocumentClassifier:
         probs = torch.softmax(self.model(batch).float(), dim=1)
         top_p, top_i = probs.topk(5, dim=1)
         out = []
-        for p_row, i_row in zip(top_p.tolist(), top_i.tolist()):
-            top5 = [(RVL_CDIP_CLASSES[i], p) for i, p in zip(i_row, p_row)]
+        for p_row, i_row in zip(top_p.tolist(), top_i.tolist(), strict=True):
+            top5 = [(RVL_CDIP_CLASSES[i], p) for i, p in zip(i_row, p_row, strict=True)]
             out.append(
                 Prediction(
                     label=top5[0][0],
@@ -111,30 +93,7 @@ def load_classifier(
     min_test_top1: float = MIN_TEST_TOP1,
 ) -> DocumentClassifier:
     """Verify weights against the model card, then load them. Refuses to start on any mismatch."""
-    if not weights_path.is_file():
-        raise ClassifierStartupError(f"Classifier weights missing: {weights_path}")
-    if not card_path.is_file():
-        raise ClassifierStartupError(f"Model card missing: {card_path}")
-
-    card = json.loads(card_path.read_text())
-
-    expected_sha = card.get("sha256")
-    actual_sha = sha256_file(weights_path)
-    if actual_sha != expected_sha:
-        raise ClassifierStartupError(
-            f"Weights SHA-256 mismatch: model card says {expected_sha}, file is {actual_sha}"
-        )
-
-    test_top1 = card.get("metrics", {}).get("test", {}).get("top1")
-    if test_top1 is None or test_top1 < min_test_top1:
-        raise ClassifierStartupError(
-            f"Model card test top-1 {test_top1} is below the committed threshold {min_test_top1}"
-        )
-
-    if list(card.get("classes", [])) != list(RVL_CDIP_CLASSES):
-        raise ClassifierStartupError(
-            "Model card class list does not match RVL_CDIP_CLASSES"
-        )
+    card = verify_artifacts(weights_path, card_path, min_test_top1)
 
     model = build_model(card.get("backbone", ""))
     state = torch.load(weights_path, map_location="cpu", weights_only=True)

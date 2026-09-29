@@ -36,9 +36,7 @@ def test_golden_set_is_complete():
     cases = _cases()
     assert len(cases) == 50, f"expected 50 golden images, found {len(cases)}"
     for case in cases:
-        assert (GOLDEN_IMAGES / case["file"]).is_file(), (
-            f"missing golden image {case['file']}"
-        )
+        assert (GOLDEN_IMAGES / case["file"]).is_file(), f"missing golden image {case['file']}"
 
 
 @pytest.mark.parametrize("case", _cases(), ids=lambda c: c["file"])
@@ -46,5 +44,6 @@ def test_golden_prediction_matches(classifier, case):
     pred = classifier.predict_path(GOLDEN_IMAGES / case["file"])
     assert pred.label == case["expected_label"]
     assert abs(pred.confidence - case["expected_confidence"]) <= CONFIDENCE_TOLERANCE, (
-        f"{case['file']}: confidence {pred.confidence!r} vs expected {case['expected_confidence']!r}"
+        f"{case['file']}: confidence {pred.confidence!r} "
+        f"vs expected {case['expected_confidence']!r}"
     )

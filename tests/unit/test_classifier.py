@@ -69,9 +69,7 @@ def test_refuses_below_quality_gate(tmp_path, weights):
 
 
 def test_refuses_on_wrong_class_list(tmp_path, weights):
-    card = write_card(
-        tmp_path / "card.json", weights, classes=list(reversed(RVL_CDIP_CLASSES))
-    )
+    card = write_card(tmp_path / "card.json", weights, classes=list(reversed(RVL_CDIP_CLASSES)))
     with pytest.raises(ClassifierStartupError, match="class list"):
         load_classifier(weights, card)
 
