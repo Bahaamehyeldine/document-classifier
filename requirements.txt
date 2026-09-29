@@ -42,3 +42,11 @@ torch==2.14.0
 torchvision==0.29.0
 pillow==12.2.0
 pytest==9.1.1
+casbin==1.43.0
+hvac==2.4.0
+redis==8.1.0
+rq==2.12.0
+fastapi-cache2==0.2.2
+minio==7.2.20
+paramiko==5.0.0
+structlog==26.1.0

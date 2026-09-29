@@ -1,0 +1,10 @@
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["B008"]  # FastAPI's Depends() in defaults is the intended pattern
+
+[lint.per-file-ignores]
+"alembic/**" = ["E501", "I001", "UP"]
+"notebooks/**" = ["E501", "B", "I001"]
