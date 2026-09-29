@@ -15,9 +15,21 @@ from app.db.models import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-database_url = os.environ.get("DATABASE_URL")
+
+def _database_url() -> str | None:
+    """Prefer Vault (same source as the app); DATABASE_URL is a local-dev fallback."""
+    if os.environ.get("VAULT_TOKEN"):
+        from app.core.config import get_settings
+        from app.infra.vault import load_secrets
+
+        s = get_settings()
+        return load_secrets(s.vault_addr, s.vault_token, s.vault_secret_path).database_url
+    return os.environ.get("DATABASE_URL")
+
+
+database_url = _database_url()
 if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -50,9 +62,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
