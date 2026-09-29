@@ -4,3 +4,5 @@ __pycache__/
 venv/
 .env
 .pytest_cache/
+# Colab download before unzip
+classifier_artifacts.zip
