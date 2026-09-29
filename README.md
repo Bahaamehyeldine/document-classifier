@@ -114,7 +114,7 @@ Interactive API docs are at http://localhost:8000/docs.
 
 [ARCH.md](ARCH.md) · [DECISIONS.md](DECISIONS.md) · [RUNBOOK.md](RUNBOOK.md) · [SECURITY.md](SECURITY.md) · [LICENSES.md](LICENSES.md)
 
-Built as the Week 6 team project of the SE Factory AI Engineering Bootcamp.
+Built for Week 6 of the SE Factory AI Engineering Bootcamp.
 
 ## Author
 
