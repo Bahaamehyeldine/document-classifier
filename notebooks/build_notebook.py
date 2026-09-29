@@ -35,7 +35,7 @@ The eval preprocessing is imported from the repo (`app/classifier/preprocessing.
 code("""
 # ---- Config ----
 REPO_URL = "https://github.com/Bahaamehyeldine/document-classifier.git"
-REPO_BRANCH = "feat/classifier"      # change to "main" once merged
+REPO_BRANCH = "main"
 BACKBONE = "convnext_tiny"          # or "convnext_small" (slower, ~1 pt better)
 EPOCHS = 2
 TRAIN_SUBSET = None                  # e.g. 80_000 for a faster run; None = all 320k
