@@ -103,10 +103,13 @@ curl -H "Authorization: Bearer $TOKEN" localhost:8000/batches
 **Golden-set replay:** `pytest app/classifier/eval/golden.py` re-runs the 50 golden images and requires identical labels and top-1 confidence within 1e-6 of the values recorded at training time. CI runs it once the weights are committed.
 
 ### Train the model
-1. Open `notebooks/train_rvl_cdip.ipynb` in Colab with a GPU runtime and run all cells (about 1 h of download plus about 1–1.5 h per epoch on a T4).
-2. Unzip the downloaded `classifier_artifacts.zip` at the repo root.
-3. Track the weights with LFS: `git lfs install && git lfs track "app/classifier/models/*.pt"`
-4. Verify: `pytest app/classifier/eval/golden.py tests/unit`, then commit.
+
+Two supported paths; both use the service's own preprocessing and write the same artifacts.
+
+- **Local NVIDIA GPU** (recommended if you have one): `scripts/download_rvl_cdip.sh`, then `python -m scripts.train_local`. Resumable, writes the artifacts straight into `app/classifier/`. Step by step in [RUNBOOK.md](RUNBOOK.md#train-the-model-on-a-local-gpu).
+- **Colab:** open `notebooks/train_rvl_cdip.ipynb` with a GPU runtime, run all cells, and unzip `classifier_artifacts.zip` at the repo root.
+
+Then verify with `pytest app/classifier/eval/golden.py tests/unit` and commit (weights go through git LFS; `.gitattributes` already tracks `*.pt`).
 
 ## Latency budgets
 

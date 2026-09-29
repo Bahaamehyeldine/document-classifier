@@ -43,3 +43,40 @@ Every api response has an `X-Request-ID` header; the same id appears in the api 
 
 ## Golden-set test fails in CI
 Something changed what the model outputs: the weights, `preprocessing.py`, or torch / torchvision / Pillow versions. If intentional, retrain and commit the new weights, model card and golden set together.
+
+## Train the model on a local GPU
+
+Tested path: Windows + WSL2 (Ubuntu) + NVIDIA laptop GPU. The Windows NVIDIA driver is enough; do not install a driver inside WSL.
+
+```bash
+cd ~/projects/document-classifier
+nvidia-smi                                   # must list the GPU
+
+# 1. Training environment (once)
+python3 -m venv .venv-train && source .venv-train/bin/activate
+pip install --upgrade pip
+pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cu130
+pip install -r requirements-train.txt
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+
+# 2. Dataset (~39 GB download, resumable: re-run if interrupted)
+scripts/download_rvl_cdip.sh                 # into ~/data/rvl-cdip
+
+# 3. Five-minute dry run on a small subset (artifacts go to ~/data/rvl-cdip-run/smoke)
+python -m scripts.train_local --smoke
+
+# 4. Full run: 2 epochs, full test evaluation, golden set, model card
+python -m scripts.train_local                # re-run the same command to resume after an interruption
+
+# 5. Verify and commit
+pytest app/classifier/eval/golden.py tests/unit
+sudo apt install -y git-lfs && git lfs install
+git add app/classifier/models app/classifier/eval
+git commit -m "feat(classifier): trained ConvNeXt Tiny weights, model card and golden set"
+git push
+```
+
+- **Out of memory:** lower `--batch-size` (e.g. 64) for GPU memory, or `--workers` (e.g. 6) for system RAM. WSL gets half of the machine's RAM by default; close heavy Windows apps during training.
+- **Changed options mid-run:** a checkpoint only resumes with the same settings; delete `~/data/rvl-cdip-run/<backbone>` to start over.
+- **Dataset download refused (401/403):** create a Hugging Face token and run `HF_TOKEN=<token> scripts/download_rvl_cdip.sh`.
+- The pinned `torch==2.14.0` matters: CI replays the golden set on CPU with the same version, and the recorded confidences must match within 1e-6.
