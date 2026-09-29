@@ -2,12 +2,55 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TORCH_CPU: torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu
+
 jobs:
-  test:
+  lint:
+    name: Lint and type-check
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          pip install ${{ env.TORCH_CPU }}
+          pip install -r requirements-dev.txt
+      - name: ruff
+        run: |
+          ruff check --output-format=github .
+          ruff format --check .
+      - name: mypy
+        run: mypy app
+
+  test:
+    name: Unit and API tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://postgres@localhost:5432/docclassifier_test
+      TEST_REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v5
         with:
@@ -16,28 +59,31 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install dependencies (CPU-only PyTorch)
-        run: |
-          pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu
-          pip install -r requirements.txt ruff==0.15.11
-      - name: Lint
-        run: ruff check --output-format=github .
-      - name: Unit tests
-        run: python -m pytest -v tests/unit
+      - run: |
+          pip install ${{ env.TORCH_CPU }}
+          pip install -r requirements-dev.txt
+      - name: Unit and API tests
+        run: python -m pytest -v tests
       - name: Golden-set replay
         if: hashFiles('app/classifier/models/classifier.pt') != ''
         run: python -m pytest -v app/classifier/eval/golden.py
 
-  compose:
+  smoke:
+    name: Compose smoke test
     runs-on: ubuntu-latest
+    needs: [lint, test]
     steps:
       - uses: actions/checkout@v5
-      - name: Start stack and run migrations
+        with:
+          lfs: true
+      - name: Run smoke test
+        run: ./scripts/smoke_test.sh 2>&1 | tee smoke.log
+      - name: Report failure
+        if: failure()
         run: |
-          cp .env.example .env
-          report() { echo "::error title=$1::$(tail -c 1500 "$2" | tr '\n' ' ')"; exit 1; }
-          docker compose up -d --wait db redis minio vault > up.log 2>&1 || { docker compose ps -a >> up.log 2>&1; report "compose up failed" up.log; }
-          docker compose run --rm migrate > migrate.log 2>&1 || report "migrations failed" migrate.log
+          echo "::error title=smoke test failed::$(tail -c 1500 smoke.log | tr '\n' ' ')"
+          docker compose ps -a
+          docker compose logs --tail 80
       - name: Tear down
         if: always()
         run: docker compose down -v

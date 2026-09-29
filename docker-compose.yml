@@ -1,3 +1,18 @@
+# Local stack. Development credentials below are for these containers only;
+# application code receives secrets exclusively from Vault (see vault-init).
+
+x-app: &app
+  build: .
+  image: document-classifier:local
+  environment: &app-env
+    VAULT_ADDR: http://vault:8200
+    VAULT_TOKEN: ${VAULT_ROOT_TOKEN}
+    REDIS_URL: redis://redis:6379/0
+    MINIO_ENDPOINT: minio:9000
+    SFTP_HOST: sftp
+  networks:
+    - backend
+
 services:
   db:
     image: postgres:16
@@ -13,7 +28,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U docclassifier"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - backend
 
@@ -25,12 +40,13 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - backend
 
   minio:
-    # minio/minio is no longer published on Docker Hub; Chainguard's free build is maintained
+    # minio/minio is no longer published on Docker Hub; Chainguard's free build is maintained.
+    # The image is distroless, so there is no container healthcheck.
     image: cgr.dev/chainguard/minio:latest
     command: server /data --console-address ":9001"
     environment:
@@ -67,19 +83,83 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8200/v1/sys/health?standbyok=true"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+    networks:
+      - backend
+
+  # Seeds the dev secrets into Vault, then exits. Dev-mode Vault is in memory,
+  # so this runs on every `docker compose up`; the JWT key is freshly random each time.
+  vault-init:
+    image: hashicorp/vault
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_ROOT_TOKEN}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        vault kv put secret/docclassifier
+        database_url=postgresql+psycopg://docclassifier:docclassifier_dev_pw@db:5432/docclassifier
+        jwt_secret="$$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
+        minio_access_key=docclassifier
+        minio_secret_key=docclassifier_dev_pw
+        sftp_password=docclassifier_dev_pw
     networks:
       - backend
 
   migrate:
-    build: .
-    environment:
-      DATABASE_URL: postgresql+psycopg://docclassifier:docclassifier_dev_pw@db:5432/docclassifier
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - backend
+      vault-init:
+        condition: service_completed_successfully
+
+  api:
+    <<: *app
+    command: ["uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.workers.inference"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  sftp-ingest:
+    <<: *app
+    command: ["python", "-m", "app.workers.sftp_ingest"]
+    environment:
+      <<: *app-env
+      SFTP_POLL_SECONDS: "2"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      sftp:
+        condition: service_started
 
 volumes:
   pgdata:
