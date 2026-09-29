@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          lfs: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies (CPU-only PyTorch)
+        run: |
+          pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt ruff==0.15.11
+      - name: Lint
+        run: ruff check --output-format=github .
+      - name: Unit tests
+        run: python -m pytest -v tests/unit
+      - name: Golden-set replay
+        if: hashFiles('app/classifier/models/classifier.pt') != ''
+        run: python -m pytest -v app/classifier/eval/golden.py
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Start stack and run migrations
+        run: |
+          cp .env.example .env
+          docker compose up -d --build --wait db redis minio vault
+          docker compose run --rm migrate
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

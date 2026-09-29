@@ -1,5 +1,9 @@
 # Document Classifier
 
+[![CI](https://github.com/Bahaamehyeldine/document-classifier/actions/workflows/ci.yml/badge.svg)](https://github.com/Bahaamehyeldine/document-classifier/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-ConvNeXt-ee4c2c)
+
 > **Status: in progress.** Infrastructure, database layer, layered API and the classifier code (training notebook, inference, golden-set test) are in place. Trained weights, the ingestion workers, auth/permissions and CI are next.
 
 A backend service for ingesting and classifying documents. Documents will arrive by upload or SFTP drop, be stored in object storage, and be processed asynchronously. Pages are classified by **visual layout** (no OCR) into the 16 RVL-CDIP classes with a fine-tuned ConvNeXt.
@@ -103,7 +107,14 @@ Interactive API docs are at http://localhost:8000/docs.
 - [ ] Train on Colab and commit weights, model card and golden set
 - [ ] Authentication with `fastapi-users` (JWT) and Casbin roles (admin / reviewer / auditor)
 - [ ] Secrets loaded from Vault
-- [ ] CI: lint, type-check, golden-set test, compose smoke test
+- [x] CI: lint, unit tests, golden-set replay (once weights are committed), compose + migrations
+- [ ] CI: type-check and end-to-end SFTP smoke test
+
+## Documentation
+
+[ARCH.md](ARCH.md) · [DECISIONS.md](DECISIONS.md) · [RUNBOOK.md](RUNBOOK.md) · [SECURITY.md](SECURITY.md) · [LICENSES.md](LICENSES.md)
+
+Built as the Week 6 team project of the SE Factory AI Engineering Bootcamp.
 
 ## Author
 
