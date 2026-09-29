@@ -35,8 +35,9 @@ jobs:
       - name: Start stack and run migrations
         run: |
           cp .env.example .env
-          docker compose up -d --build --wait db redis minio vault
-          docker compose run --rm migrate
+          report() { echo "::error title=$1::$(tail -c 1500 "$2" | tr '\n' ' ')"; exit 1; }
+          docker compose up -d --wait db redis minio vault > up.log 2>&1 || { docker compose ps -a >> up.log 2>&1; report "compose up failed" up.log; }
+          docker compose run --rm migrate > migrate.log 2>&1 || report "migrations failed" migrate.log
       - name: Tear down
         if: always()
         run: docker compose down -v
