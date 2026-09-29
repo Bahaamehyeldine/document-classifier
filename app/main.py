@@ -20,8 +20,8 @@ from fastapi_cache.backends.redis import RedisBackend
 from redis.asyncio import Redis
 
 from app.api import health
-from app.api.auth import auth_backend, fastapi_users
 from app.api.routes import audit_router, batches_router, me_router, predictions_router, users_router
+from app.auth import auth_backend, fastapi_users
 from app.classifier.artifacts import verify_artifacts
 from app.core.config import Settings, get_settings
 from app.core.log import configure_logging, get_logger, new_request_id, request_id_var

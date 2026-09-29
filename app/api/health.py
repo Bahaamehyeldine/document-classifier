@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends
 
-from app.db.session import get_session
+from app.dependencies import ServiceContext, service_context
 from app.domain.user import UserCountResponse
-from app.services import user_service
+from app.services import health_service, user_service
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -18,12 +17,11 @@ async def live():
 
 
 @router.get("/db", response_model=UserCountResponse)
-async def health_db(session: AsyncSession = Depends(get_session)) -> UserCountResponse:
-    return UserCountResponse(count=await user_service.get_user_count(session))
+async def health_db(ctx: ServiceContext = Depends(service_context)) -> UserCountResponse:
+    return UserCountResponse(count=await user_service.get_user_count(ctx.session))
 
 
 @router.get("/ready")
-async def ready(request: Request, session: AsyncSession = Depends(get_session)):
-    await user_service.get_user_count(session)
-    await request.app.state.redis.ping()
+async def ready(ctx: ServiceContext = Depends(service_context)):
+    await health_service.check_ready(ctx.session, ctx.redis)
     return {"status": "ready"}

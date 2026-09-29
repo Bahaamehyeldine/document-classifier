@@ -16,7 +16,7 @@ import sys
 
 from fastapi_users.exceptions import UserAlreadyExists
 
-from app.api.auth import UserManager
+from app.auth import UserManager
 from app.core.config import get_settings
 from app.db.session import dispose_engine, init_engine, sessionmaker
 from app.domain.schemas import UserCreate
