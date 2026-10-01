@@ -35,17 +35,28 @@ fetch() {  # fetch URL OUTPUT: resumable download with retries around curl itsel
   done
 }
 
+# Extracting ~400k small files is heavy disk work. Run it at the lowest CPU and
+# I/O priority so WSL (and editors connected to it) stay responsive meanwhile.
+low_priority=(nice -n 19)
+if command -v ionice >/dev/null; then low_priority+=(ionice -c 2 -n 7); fi
+VERIFIED="$DATA_DIR/.archive-verified"
+
 if [[ -d "$DATA_DIR/images" && -f "$DATA_DIR/.extracted" ]]; then
   echo "Images already extracted in $DATA_DIR/images"
 else
-  echo "Downloading archive to $ARCHIVE (resumes if partially downloaded)..."
-  fetch "$BASE/rvl-cdip.tar.gz" "$ARCHIVE"
-  echo "Checking archive integrity..."
-  gzip -t "$ARCHIVE"
-  echo "Extracting (takes a while)..."
-  tar -xzf "$ARCHIVE" -C "$DATA_DIR"
+  if [[ -f "$ARCHIVE" && -f "$VERIFIED" ]]; then
+    echo "Archive already downloaded and verified; skipping to extraction."
+  else
+    echo "Downloading archive to $ARCHIVE (resumes if partially downloaded)..."
+    fetch "$BASE/rvl-cdip.tar.gz" "$ARCHIVE"
+    echo "Checking archive integrity..."
+    "${low_priority[@]}" gzip -t "$ARCHIVE"
+    touch "$VERIFIED"
+  fi
+  echo "Extracting at low priority (takes a while; safe to re-run if interrupted)..."
+  "${low_priority[@]}" tar -xzf "$ARCHIVE" -C "$DATA_DIR"
   touch "$DATA_DIR/.extracted"
-  rm -f "$ARCHIVE"
+  rm -f "$ARCHIVE" "$VERIFIED"
 fi
 
 for split in train val test; do
