@@ -14,6 +14,8 @@
 
 **Golden set = 2 easy + 1 ambiguous per class, plus 2 most ambiguous overall.** Easy cases catch gross breakage; ambiguous ones (smallest top-1/top-2 margin) are the most sensitive to subtle drift in weights or preprocessing.
 
+**Trained on a local GPU instead of Colab (deviation from the brief).** The brief says to train, evaluate and pick the golden set on Colab and not to download the ~37 GB dataset locally, because it assumed laptops without a usable GPU. This model was trained with `scripts/train_local.py` on a local RTX 5070 Laptop GPU, which is faster than a free Colab T4 and avoids mid-run disconnects. The training logic matches `notebooks/train_rvl_cdip.ipynb` (same preprocessing module, backbone, hyperparameters, golden-set rule and CPU float32 golden outputs), the dataset comes from the same source, and the model card's `environment` block records where it ran. The rule that matters for the architecture still holds: the compose stack never trains and never sees the dataset. The Colab notebook remains supported for anyone without a GPU.
+
 **One preprocessing module shared by training and serving.** The Colab notebook clones the repo and imports `app/classifier/preprocessing.py`, removing a whole class of training/serving skew.
 
 **Casbin policy read from the database on every permission check.** Caching the enforcer would save one small query per request but would delay role changes until a cache expiry or restart. The brief requires a role change to apply on the next page load, so correctness wins; the policy table has one row per permission and per user.
