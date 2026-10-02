@@ -1,4 +1,6 @@
-"""Train the RVL-CDIP document classifier on a local GPU and write the service artifacts.
+"""Train the RVL-CDIP document classifier on a GPU and write the service artifacts.
+
+Runs unchanged on Colab (notebooks/train_rvl_cdip.ipynb calls it) and on a local NVIDIA GPU.
 
 Produces exactly what the service verifies at startup:
     app/classifier/models/classifier.pt         state_dict (commit with git LFS)
@@ -9,8 +11,8 @@ Produces exactly what the service verifies at startup:
 Uses the service's own preprocessing (app/classifier/preprocessing.py) and model
 constructor, so training and inference cannot drift apart.
 
-    python -m scripts.train_local --smoke          # ~5 min dry run on a small subset
-    python -m scripts.train_local                  # full run; re-run to resume an interrupted one
+    python -m scripts.train --smoke          # ~5 min dry run on a small subset
+    python -m scripts.train                  # full run; re-run to resume an interrupted one
 """
 
 from __future__ import annotations
@@ -158,11 +160,20 @@ def loader(rows, train: bool, args) -> DataLoader:
     )
 
 
+def amp_dtype(device: str) -> torch.dtype | None:
+    """bfloat16 where the GPU supports it natively (no loss scaling needed), float16
+    with a GradScaler on older cards such as Colab's T4, plain float32 on CPU."""
+    if device != "cuda":
+        return None
+    native_bf16 = torch.cuda.is_bf16_supported(including_emulation=False)
+    return torch.bfloat16 if native_bf16 else torch.float16
+
+
 def autocast(device: str):
-    # bfloat16 on GPU: no loss scaling needed and well supported on recent NVIDIA cards.
-    if device == "cuda":
-        return torch.autocast("cuda", dtype=torch.bfloat16)
-    return torch.autocast("cpu", enabled=False)
+    dtype = amp_dtype(device)
+    if dtype is None:
+        return torch.autocast("cpu", enabled=False)
+    return torch.autocast("cuda", dtype=dtype)
 
 
 @torch.inference_mode()
@@ -258,6 +269,10 @@ def main() -> None:
         opt, max_lr=args.lr, total_steps=total_steps, pct_start=max(0.05, 3 / total_steps)
     )
     loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
+    precision = amp_dtype(device)
+    scaler = torch.amp.GradScaler(device, enabled=precision is torch.float16)
+    precision_name = f"{str(precision).removeprefix('torch.')} autocast" if precision else "float32"
+    print(f"Precision: {precision_name}")
 
     # ---- resume -------------------------------------------------------------
     ckpt_path, best_path = work / "last.pt", work / "best_state_dict.pt"
@@ -281,6 +296,8 @@ def main() -> None:
         model.load_state_dict(ckpt["model"])
         opt.load_state_dict(ckpt["opt"])
         sched.load_state_dict(ckpt["sched"])
+        if "scaler" in ckpt:
+            scaler.load_state_dict(ckpt["scaler"])
         global_step, best_val, elapsed = ckpt["step"], ckpt["best_val"], ckpt.get("elapsed", 0.0)
         print(
             f"Resuming from step {global_step:,}/{total_steps:,} "
@@ -295,6 +312,7 @@ def main() -> None:
                 "model": model.state_dict(),
                 "opt": opt.state_dict(),
                 "sched": sched.state_dict(),
+                "scaler": scaler.state_dict(),
                 "step": global_step,
                 "best_val": best_val,
                 "elapsed": elapsed + time.time() - t0,
@@ -322,8 +340,9 @@ def main() -> None:
             with autocast(device):
                 loss = loss_fn(model(x), y)
             opt.zero_grad(set_to_none=True)
-            loss.backward()
-            opt.step()
+            scaler.scale(loss).backward()
+            scaler.step(opt)
+            scaler.update()
             sched.step()
             global_step += 1
             bar.update(1)
@@ -417,7 +436,7 @@ def main() -> None:
             "optimizer": "AdamW",
             "schedule": "OneCycle",
             "label_smoothing": 0.1,
-            "precision": "bfloat16 autocast" if device == "cuda" else "float32",
+            "precision": precision_name,
             "seed": args.seed,
             "best_val_top1": best_val,
             "train_minutes": round(train_minutes, 1),

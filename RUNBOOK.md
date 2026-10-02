@@ -63,10 +63,10 @@ python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_
 scripts/download_rvl_cdip.sh                 # into ~/data/rvl-cdip
 
 # 3. Five-minute dry run on a small subset (artifacts go to ~/data/rvl-cdip-run/smoke)
-python -m scripts.train_local --smoke
+python -m scripts.train --smoke
 
 # 4. Full run: 2 epochs, full test evaluation, golden set, model card
-python -m scripts.train_local                # re-run the same command to resume after an interruption
+python -m scripts.train                # re-run the same command to resume after an interruption
 
 # 5. Verify and commit
 pytest app/classifier/eval/golden.py tests/unit

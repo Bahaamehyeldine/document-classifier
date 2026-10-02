@@ -104,10 +104,10 @@ curl -H "Authorization: Bearer $TOKEN" localhost:8000/batches
 
 ### Train the model
 
-Two supported paths; both use the service's own preprocessing and write the same artifacts.
+One script, [`scripts/train.py`](scripts/train.py), does everything: fine-tune, evaluate on the test split, pick the golden set, write the model card. It uses the service's own preprocessing and is resumable.
 
-- **Local NVIDIA GPU** (recommended if you have one): `scripts/download_rvl_cdip.sh`, then `python -m scripts.train_local`. Resumable, writes the artifacts straight into `app/classifier/`. Step by step in [RUNBOOK.md](RUNBOOK.md#train-the-model-on-a-local-gpu).
-- **Colab:** open `notebooks/train_rvl_cdip.ipynb` with a GPU runtime, run all cells, and unzip `classifier_artifacts.zip` at the repo root.
+- **Colab (how the shipped model is trained):** open [`notebooks/train_rvl_cdip.ipynb`](notebooks/train_rvl_cdip.ipynb) in Colab with a T4 GPU runtime and run all cells. It streams the dataset, calls the script, checkpoints to Google Drive, and produces `classifier_artifacts.zip` to unzip at the repo root.
+- **Local NVIDIA GPU (optional):** `scripts/download_rvl_cdip.sh`, then `python -m scripts.train`. Needs about 40 GB of disk and 16 GB of free RAM. Step by step in [RUNBOOK.md](RUNBOOK.md#train-the-model-on-a-local-gpu).
 
 Then verify with `pytest app/classifier/eval/golden.py tests/unit` and commit (weights go through git LFS; `.gitattributes` already tracks `*.pt`).
 
