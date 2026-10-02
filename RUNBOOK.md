@@ -76,7 +76,9 @@ git commit -m "feat(classifier): trained ConvNeXt Tiny weights, model card and g
 git push
 ```
 
-- **Out of memory:** lower `--batch-size` (e.g. 64) for GPU memory, or `--workers` (e.g. 6) for system RAM. WSL gets half of the machine's RAM by default; close heavy Windows apps during training.
-- **Changed options mid-run:** a checkpoint only resumes with the same settings; delete `~/data/rvl-cdip-run/<backbone>` to start over.
+- **Interrupted run:** re-run the same command. A checkpoint is saved every 300 steps (a few minutes) and at each epoch end, so little is lost.
+- **Run stalls, then dies (system RAM):** WSL gets only half of the machine's RAM by default, and each data-loading worker costs several hundred MB. The script prints total and available RAM at startup. Lower `--workers` (default 6), close heavy Windows apps, or raise WSL's limit: put `[wsl2]`, `memory=11GB` and `swap=8GB` in `%UserProfile%\.wslconfig`, then run `wsl --shutdown`.
+- **CUDA out of memory (GPU):** lower `--batch-size` (e.g. 64) and delete the run folder, since a checkpoint only resumes with the same settings.
+- **Changed options mid-run:** delete `~/data/rvl-cdip-run/<backbone>` to start over.
 - **Dataset download refused (401/403):** create a Hugging Face token and run `HF_TOKEN=<token> scripts/download_rvl_cdip.sh`.
 - The pinned `torch==2.14.0` matters: CI replays the golden set on CPU with the same version, and the recorded confidences must match within 1e-6.

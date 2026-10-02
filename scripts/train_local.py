@@ -10,13 +10,14 @@ Uses the service's own preprocessing (app/classifier/preprocessing.py) and model
 constructor, so training and inference cannot drift apart.
 
     python -m scripts.train_local --smoke          # ~5 min dry run on a small subset
-    python -m scripts.train_local                  # full run (resumes from the last epoch)
+    python -m scripts.train_local                  # full run; re-run to resume an interrupted one
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import itertools
 import json
 import os
 import platform
@@ -54,12 +55,14 @@ WEIGHTS_ENUM = {
 }
 FREEZE_POLICY = "none (full fine-tune, all layers trainable)"
 
-# Light, layout-preserving augmentation for training only.
+# Light, layout-preserving augmentation for training only. Resizing first means the
+# affine warp runs on 224 x 224 pixels rather than the ~1000 x 750 scan, which makes
+# each data-loading worker several times faster (so fewer workers, and less RAM, suffice).
 TRAIN_TRANSFORM = v2.Compose(
     [
         v2.ToImage(),
-        v2.RandomAffine(degrees=2, translate=(0.02, 0.02), scale=(0.95, 1.05), fill=255),
         v2.Resize((INPUT_SIZE, INPUT_SIZE), antialias=True),
+        v2.RandomAffine(degrees=2, translate=(0.02, 0.02), scale=(0.95, 1.05), fill=255),
         v2.ToDtype(torch.float32, scale=True),
         v2.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ]
@@ -75,7 +78,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch-size", type=int, default=96)
     p.add_argument("--lr", type=float, default=4e-4)
     p.add_argument("--weight-decay", type=float, default=0.05)
-    p.add_argument("--workers", type=int, default=min(12, os.cpu_count() or 4))
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=min(6, os.cpu_count() or 4),
+        help="data-loading processes; each costs RAM, so keep this low under WSL (default 6)",
+    )
+    p.add_argument(
+        "--checkpoint-every",
+        type=int,
+        default=300,
+        help="save a resumable checkpoint every N training steps (default 300, a few minutes)",
+    )
     p.add_argument("--train-subset", type=int, default=None, help="use N random training images")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument(
@@ -87,6 +101,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--device", default="cuda")
     p.add_argument("--no-pretrained", action="store_true", help=argparse.SUPPRESS)  # offline tests
     return p.parse_args()
+
+
+def memory_gb() -> tuple[float, float] | None:
+    """(total, available) system RAM in GB on Linux, else None."""
+    try:
+        info = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines())
+        to_gb = lambda key: int(info[key].split()[0]) / 1024**2  # noqa: E731
+        return to_gb("MemTotal"), to_gb("MemAvailable")
+    except (OSError, KeyError, ValueError):
+        return None
 
 
 def read_split(root: Path, name: str) -> list[tuple[Path, int]]:
@@ -130,7 +154,7 @@ def loader(rows, train: bool, args) -> DataLoader:
         pin_memory=args.device == "cuda",
         collate_fn=collate,
         persistent_workers=args.workers > 0,
-        prefetch_factor=4 if args.workers > 0 else None,
+        prefetch_factor=2 if args.workers > 0 else None,
     )
 
 
@@ -192,6 +216,15 @@ def main() -> None:
         torch.backends.cudnn.benchmark = True
         print(f"GPU: {torch.cuda.get_device_name(0)}")
 
+    mem = memory_gb()
+    if mem:
+        print(f"RAM: {mem[0]:.1f} GB total, {mem[1]:.1f} GB available; {args.workers} workers")
+        if mem[1] < 4 + 0.6 * args.workers:
+            print(
+                "WARNING: little free memory for this many workers. If the run stalls or is "
+                "killed, lower --workers or raise WSL's memory limit (see RUNBOOK.md)."
+            )
+
     train_rows = read_split(args.data_root, "train")
     val_rows = read_split(args.data_root, "val")
     test_rows = read_split(args.data_root, "test")
@@ -228,7 +261,8 @@ def main() -> None:
 
     # ---- resume -------------------------------------------------------------
     ckpt_path, best_path = work / "last.pt", work / "best_state_dict.pt"
-    start_epoch, best_val = 0, 0.0
+    steps_per_epoch = len(train_dl)
+    global_step, best_val, elapsed = 0, 0.0, 0.0
     run_config = {
         "backbone": args.backbone,
         "epochs": args.epochs,
@@ -247,15 +281,42 @@ def main() -> None:
         model.load_state_dict(ckpt["model"])
         opt.load_state_dict(ckpt["opt"])
         sched.load_state_dict(ckpt["sched"])
-        start_epoch, best_val = ckpt["epoch"] + 1, ckpt["best_val"]
-        print(f"Resuming after epoch {start_epoch} (best val top-1 {best_val:.4f})")
+        global_step, best_val, elapsed = ckpt["step"], ckpt["best_val"], ckpt.get("elapsed", 0.0)
+        print(
+            f"Resuming from step {global_step:,}/{total_steps:,} "
+            f"(epoch {global_step // steps_per_epoch + 1}, best val top-1 {best_val:.4f})"
+        )
+
+    def save_checkpoint() -> None:
+        """Write atomically so a crash mid-save cannot leave a truncated checkpoint."""
+        tmp = ckpt_path.with_suffix(".tmp")
+        torch.save(
+            {
+                "model": model.state_dict(),
+                "opt": opt.state_dict(),
+                "sched": sched.state_dict(),
+                "step": global_step,
+                "best_val": best_val,
+                "elapsed": elapsed + time.time() - t0,
+                "config": run_config,
+            },
+            tmp,
+        )
+        os.replace(tmp, ckpt_path)
 
     # ---- train --------------------------------------------------------------
+    # Checkpoints are written every --checkpoint-every steps as well as at each epoch
+    # end. A run resumed mid-epoch finishes that epoch's remaining steps on a fresh
+    # shuffle, so the step count and learning-rate schedule are unchanged.
     t0 = time.time()
-    for epoch in range(start_epoch, args.epochs):
+    while global_step < total_steps:
+        epoch = global_step // steps_per_epoch
+        done_in_epoch = global_step % steps_per_epoch
         model.train()
-        bar = tqdm(train_dl, desc=f"epoch {epoch + 1}/{args.epochs}")
-        for x, y, _ in bar:
+        bar = tqdm(
+            total=steps_per_epoch, initial=done_in_epoch, desc=f"epoch {epoch + 1}/{args.epochs}"
+        )
+        for x, y, _ in itertools.islice(train_dl, steps_per_epoch - done_in_epoch):
             x = x.to(device, non_blocking=True).to(memory_format=torch.channels_last)
             y = y.to(device, non_blocking=True)
             with autocast(device):
@@ -264,25 +325,20 @@ def main() -> None:
             loss.backward()
             opt.step()
             sched.step()
+            global_step += 1
+            bar.update(1)
             bar.set_postfix(loss=f"{loss.item():.3f}")
+            if global_step % args.checkpoint_every == 0 and global_step % steps_per_epoch:
+                save_checkpoint()
+        bar.close()
         p, yv, _ = evaluate(model, val_dl, device)
         val_top1 = topk(p, yv, 1)
         print(f"epoch {epoch + 1}: val top-1 {val_top1:.4f}  top-5 {topk(p, yv, 5):.4f}")
         if val_top1 > best_val:
             best_val = val_top1
             torch.save(model.state_dict(), best_path)
-        torch.save(
-            {
-                "model": model.state_dict(),
-                "opt": opt.state_dict(),
-                "sched": sched.state_dict(),
-                "epoch": epoch,
-                "best_val": best_val,
-                "config": run_config,
-            },
-            ckpt_path,
-        )
-    train_minutes = (time.time() - t0) / 60
+        save_checkpoint()
+    train_minutes = (elapsed + time.time() - t0) / 60
 
     # ---- full test evaluation, once, on the best checkpoint -------------------
     model.load_state_dict(torch.load(best_path, map_location=device, weights_only=True))
