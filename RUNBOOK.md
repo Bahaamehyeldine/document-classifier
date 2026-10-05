@@ -23,6 +23,7 @@ Every service logs one JSON line explaining why (`docker compose logs <service>`
 |---|---|---|
 | `Cannot read secrets from Vault` | Vault down or not seeded | `docker compose up -d vault vault-init` |
 | `Classifier weights missing` | model not trained yet | run the Colab notebook, unzip artifacts, `git lfs pull` on a fresh clone |
+| Colab disconnected during training | idle timeout or runtime recycled | run the notebook's **Run or resume** cell again; finished steps are skipped and training resumes from the Drive checkpoint |
 | `Weights SHA-256 mismatch` | weights and model card from different runs | re-extract both from the same `classifier_artifacts.zip` |
 | `below the committed threshold` | model under the README quality gate | retrain; do not lower the gate to pass |
 | `Casbin policy table is empty` | migrations not applied | `docker compose run --rm migrate` |
