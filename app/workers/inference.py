@@ -27,12 +27,9 @@ from app.classifier.preprocessing import load_image_bytes
 from app.core.log import configure_logging, get_logger, request_id_var
 from app.db.session import sessionmaker
 from app.services import batch_service
-from app.workers.common import WorkerContext, bootstrap
+from app.workers.common import STATE, WorkerContext, bootstrap
 
 log = get_logger(__name__)
-
-_ctx: WorkerContext | None = None
-_classifier: DocumentClassifier | None = None
 
 
 class PermanentJobError(Exception):
@@ -97,11 +94,11 @@ async def fail(
 
 
 def _loaded() -> tuple[WorkerContext, DocumentClassifier]:
-    if _ctx is None or _classifier is None:
+    if STATE.ctx is None or STATE.classifier is None:
         raise RuntimeError(
             "Worker not initialised; start it with `python -m app.workers.inference`"
         )
-    return _ctx, _classifier
+    return STATE.ctx, STATE.classifier
 
 
 def classify_document_job(document_id: str) -> str | None:
@@ -129,22 +126,22 @@ def classify_document_job(document_id: str) -> str | None:
 
 
 def main() -> int:
-    global _ctx, _classifier
     configure_logging("worker")
     try:
-        _ctx = bootstrap()
-        _classifier = load_classifier()
+        ctx = bootstrap()
+        classifier = load_classifier()
     except Exception as exc:  # refuse to start
         log.error("worker.refused_to_start", error=str(exc), error_type=type(exc).__name__)
         return 1
+    STATE.ctx, STATE.classifier = ctx, classifier  # shared with the module RQ imports jobs from
     log.info(
         "worker.started",
-        backbone=_classifier.card["backbone"],
-        model_sha256=_classifier.card["sha256"][:12],
+        backbone=classifier.card["backbone"],
+        model_sha256=classifier.card["sha256"][:12],
     )
-    queue = Queue(_ctx.settings.queue_name, connection=_ctx.redis)
+    queue = Queue(ctx.settings.queue_name, connection=ctx.redis)
     # SimpleWorker runs jobs in this process, keeping the model and DB pool warm.
-    SimpleWorker([queue], connection=_ctx.redis).work(with_scheduler=True)
+    SimpleWorker([queue], connection=ctx.redis).work(with_scheduler=True)
     return 0
 
 

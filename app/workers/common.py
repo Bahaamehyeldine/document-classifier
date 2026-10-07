@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from typing import Any
 
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
@@ -31,6 +32,24 @@ class WorkerContext:
         across jobs (an engine must not be shared between event loops).
         """
         return self.loop.run_until_complete(coro)
+
+
+@dataclass
+class WorkerState:
+    """What a started worker process holds (context, loaded model).
+
+    It lives in this module, which is never run as a script, on purpose. A worker is
+    started with `python -m app.workers.inference`, which runs that file as `__main__`,
+    while RQ imports the job function as `app.workers.inference`: two separate module
+    objects. State stored in the entry module's globals is invisible to the job and every
+    job fails with "not initialised". Both copies import this one, so both see the state.
+    """
+
+    ctx: WorkerContext | None = None
+    classifier: Any = None  # a DocumentClassifier; Any keeps this module free of torch
+
+
+STATE = WorkerState()
 
 
 def bootstrap(settings: Settings | None = None) -> WorkerContext:
