@@ -77,7 +77,11 @@ jobs:
         with:
           lfs: true
       - name: Run smoke test
-        run: ./scripts/smoke_test.sh 2>&1 | tee smoke.log
+        # The default `bash -e` has no pipefail, so `| tee` would report tee's success even
+        # when the smoke test fails. That hid a real failure here once.
+        run: |
+          set -o pipefail
+          ./scripts/smoke_test.sh 2>&1 | tee smoke.log
       - name: Report failure
         if: failure()
         run: |
