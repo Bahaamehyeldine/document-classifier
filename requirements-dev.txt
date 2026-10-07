@@ -3,7 +3,7 @@ pytest-asyncio==1.4.0
 httpx==0.28.1
 asgi-lifespan==2.1.0
 moto[server]==5.2.3
-ruff==0.15.11
+ruff==0.16.10
 mypy==1.18.2
 types-paramiko==4.0.0.20250822
 tqdm==4.70.1  # also pinned in requirements-train.txt; the unit tests run the training script
