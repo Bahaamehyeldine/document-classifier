@@ -66,6 +66,14 @@ services:
       - "${SFTP_PORT:-2222}:22"
     volumes:
       - sftpdata:/home/scanner/upload
+    # The upload folder is a mounted volume, so the image treats it as "already existing" and
+    # leaves it root-owned, which makes every scanner write fail with "Permission denied".
+    # Hand it to the scanner user (uid 1001, group users) before the image's entrypoint runs.
+    entrypoint:
+      - /bin/bash
+      - -c
+      - chown 1001:100 /home/scanner/upload && exec /entrypoint "$$@"
+      - --
     command: scanner:docclassifier_dev_pw:1001
     networks:
       - backend
