@@ -466,7 +466,7 @@ def main() -> None:
             )
 
     # ---- golden set: expected outputs recorded on CPU in float32 --------------
-    # CI replays on CPU; GPU / reduced-precision numbers would not match within 1e-6.
+    # CI replays on CPU; GPU / reduced-precision numbers would not match the tolerance.
     # Golden pages must be real full-size TIFFs. Extracted data has them all; the cache keeps
     # the originals of 1 in 20 test pages (its "golden pool"), so the pick is made from those.
     # When an audit is available, only leakage-controlled pages are eligible.

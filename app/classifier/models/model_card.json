@@ -1,0 +1,161 @@
+{
+  "name": "rvl-cdip-document-classifier",
+  "backbone": "convnext_tiny",
+  "pretrained_weights": "ConvNeXt_Tiny_Weights.IMAGENET1K_V1",
+  "freeze_policy": "none (full fine-tune, all layers trainable)",
+  "classes": [
+    "letter",
+    "form",
+    "email",
+    "handwritten",
+    "advertisement",
+    "scientific_report",
+    "scientific_publication",
+    "specification",
+    "file_folder",
+    "news_article",
+    "budget",
+    "invoice",
+    "presentation",
+    "questionnaire",
+    "resume",
+    "memo"
+  ],
+  "input": {
+    "size": 224,
+    "channels": "grayscale replicated to RGB",
+    "normalization": "ImageNet"
+  },
+  "training": {
+    "epochs": 2,
+    "train_images": 320000,
+    "batch_size": 96,
+    "lr": 0.0004,
+    "optimizer": "AdamW",
+    "schedule": "OneCycle",
+    "label_smoothing": 0.1,
+    "precision": "float16 autocast",
+    "seed": 42,
+    "best_val_top1": 0.9187750220298767,
+    "train_minutes": 134.8
+  },
+  "metrics": {
+    "test": {
+      "top1": 0.9164978861808777,
+      "top5": 0.9894247651100159,
+      "n": 39999
+    },
+    "test_leakage_controlled": {
+      "top1": 0.9166792631149292,
+      "top5": 0.9894623160362244,
+      "n": 39762,
+      "policy": "official test pages that decode, have no pixel-identical twin in train or validation, are not in a conflicting-label duplicate group, and are the first occurrence of their pixels within test"
+    },
+    "golden": {
+      "top1": 0.8,
+      "top5": 0.98,
+      "n": 50
+    },
+    "per_class_test_accuracy": {
+      "letter": 0.9135552048683167,
+      "form": 0.83958500623703,
+      "email": 0.9880763292312622,
+      "handwritten": 0.9624802470207214,
+      "advertisement": 0.9288270473480225,
+      "scientific_report": 0.8322657942771912,
+      "scientific_publication": 0.9249319434165955,
+      "specification": 0.9377022385597229,
+      "file_folder": 0.9643846750259399,
+      "news_article": 0.9183921813964844,
+      "budget": 0.9089820384979248,
+      "invoice": 0.9204683303833008,
+      "presentation": 0.845319390296936,
+      "questionnaire": 0.8804928064346313,
+      "resume": 0.9586125612258911,
+      "memo": 0.9369983673095703
+    }
+  },
+  "sha256": "d046738a25f360dbeda181fc65f5705329b12458f1d5b7523acfdb478be14a9a",
+  "environment": {
+    "python": "3.13.15",
+    "torch": "2.14.0+cu130",
+    "torchvision": "0.29.0+cu130",
+    "pillow": "12.2.0",
+    "cuda": "13.0",
+    "gpu": "Tesla T4",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39"
+  },
+  "dataset": {
+    "name": "RVL-CDIP",
+    "source": "huggingface.co/datasets/aharley/rvl_cdip (official 320k/40k/40k splits)",
+    "license": "academic / research use only",
+    "input": "224 px cache (scripts/rvl_cache.py)",
+    "unreadable_images_dropped": {
+      "train": 0,
+      "validation": 0,
+      "test": 1
+    },
+    "audit": {
+      "images": {
+        "train": 320000,
+        "validation": 40000,
+        "test": 40000
+      },
+      "decode_errors": {
+        "test": 1
+      },
+      "native_modes": {
+        "L": 399999
+      },
+      "near_uniform_flagged": {
+        "train": 79,
+        "validation": 9,
+        "test": 14
+      },
+      "near_uniform_threshold_std": 5.0,
+      "exact_duplicate_groups_total": 839,
+      "exact_duplicate_images_total": 2433,
+      "duplicates_by_category": {
+        "train_test": {
+          "groups": 135,
+          "images": 315
+        },
+        "train_validation": {
+          "groups": 173,
+          "images": 386
+        },
+        "train_validation_test": {
+          "groups": 9,
+          "images": 617
+        },
+        "validation_test": {
+          "groups": 17,
+          "images": 35
+        },
+        "within_test": {
+          "groups": 10,
+          "images": 20
+        },
+        "within_train": {
+          "groups": 493,
+          "images": 1056
+        },
+        "within_validation": {
+          "groups": 2,
+          "images": 4
+        }
+      },
+      "groups_with_conflicting_labels": 17,
+      "test_images_with_twin_in_train_or_validation": 227,
+      "test_images_in_conflicting_label_groups": 67,
+      "official_test_n": 40000,
+      "leakage_controlled_test_n": 39762,
+      "audited_in_minutes": 0.2
+    }
+  },
+  "git": {
+    "commit": "ba2ca29cf9505c7ba8a3fd46ec085321ba1c5f6b",
+    "dirty": false
+  },
+  "trained_at": "2026-10-07T12:29:17+00:00"
+}
