@@ -187,12 +187,26 @@ def main() -> None:
     p.add_argument("--out-dir", type=Path, default=Path.home() / "data" / "rvl-cdip-run" / "audit")
     p.add_argument("--workers", type=int, default=min(8, os.cpu_count() or 4))
     p.add_argument("--force", action="store_true", help="recompute even if a manifest exists")
+    p.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="read the hashes recorded while building the training cache (scripts/rvl_cache.py) "
+        "instead of re-reading the images; takes seconds",
+    )
     args = p.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = args.out_dir / "manifest.csv"
     t0 = time.time()
-    if manifest_path.exists() and not args.force:
+    if args.cache_dir:
+        from scripts.rvl_cache import read_manifest
+
+        rows = read_manifest(args.cache_dir)
+        with manifest_path.open("w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+    elif manifest_path.exists() and not args.force:
         print(f"Reusing {manifest_path} (pass --force to recompute)")
         rows = load_manifest(manifest_path)
     else:

@@ -106,8 +106,8 @@ curl -H "Authorization: Bearer $TOKEN" localhost:8000/batches
 
 Two supported paths; both use the service's own preprocessing and write the same artifacts.
 
-- **Local NVIDIA GPU** (recommended if you have one): `scripts/download_rvl_cdip.sh`, then `python -m scripts.train_local`. Resumable, writes the artifacts straight into `app/classifier/`. Step by step in [RUNBOOK.md](RUNBOOK.md#train-the-model-on-a-local-gpu).
-- **Colab:** open `notebooks/train_rvl_cdip.ipynb` with a GPU runtime, run all cells, and unzip `classifier_artifacts.zip` at the repo root.
+- **Colab** (default, as the brief intends): open `notebooks/train_rvl_cdip.ipynb` with a GPU runtime and run all cells. It survives interruptions: the dataset is cached once on Drive as 224 px shards and training checkpoints there, so re-running a cell resumes. Unzip `classifier_artifacts.zip` at the repo root. Details in [RUNBOOK.md](RUNBOOK.md#train-the-model-on-colab-interruption-proof).
+- **Local NVIDIA GPU** (needs plenty of RAM; a 16 GB laptop running WSL and Docker may not cope): `scripts/download_rvl_cdip.sh`, then `python -m scripts.train_local`. Resumable, writes the artifacts straight into `app/classifier/`. Step by step in [RUNBOOK.md](RUNBOOK.md#train-the-model-on-a-local-gpu).
 
 Then verify with `pytest app/classifier/eval/golden.py tests/unit` and commit (weights go through git LFS; `.gitattributes` already tracks `*.pt`).
 

@@ -44,9 +44,25 @@ Every api response has an `X-Request-ID` header; the same id appears in the api 
 ## Golden-set test fails in CI
 Something changed what the model outputs: the weights, `preprocessing.py`, or torch / torchvision / Pillow versions. If intentional, retrain and commit the new weights, model card and golden set together.
 
+## Train the model on Colab (interruption-proof)
+
+Use `notebooks/train_rvl_cdip.ipynb` with a GPU runtime. Colab wipes its local disk on every disconnect, so the notebook keeps everything slow on **Google Drive** and every step resumes:
+
+| Step | What is stored on Drive | After an interruption |
+|---|---|---|
+| 2. `scripts.rvl_cache build` | 224 px pages in 10k-page shards (`cache/`), resized by the service's own preprocessing | re-run the cell: it re-streams the archive but only decodes pages not yet cached |
+| 3. `scripts.audit_dataset --cache-dir` | duplicate / leakage report (`audit/`), from hashes recorded in step 2 | seconds, just re-run |
+| 4. `scripts.train_local --cache-dir` | checkpoint every 300 steps and per epoch (`run/`) | re-run the cell: resumes mid-epoch |
+
+- The cache is the one-time cost (~1 h). After that a fresh runtime needs only a few minutes to unpack it, and epochs read 224 px pages instead of decoding ~1000 px TIFFs on Colab's 2 CPU cores.
+- **Drive space:** the full cache is roughly 10-14 GB (an estimate: run `python -m scripts.rvl_cache info --out DIR` and `du -sh` for the real size), which is tight on a free 15 GB account. `TRAIN_PER_CLASS = 6000` in the notebook's config caches 96k training pages instead (validation and test stay complete), for roughly 4-6 GB and a ~3x faster epoch. Changing it requires a new cache directory.
+- **Test numbers:** the model card reports the official test score (this is the quality gate, comparable to published RVL-CDIP work) and a leakage-controlled score that drops test pages with a pixel-identical twin in train or validation. The splits themselves are never modified.
+- **Golden set:** must be real full-size TIFFs, so it is drawn from the cache's "golden pool" (the original bytes of 1 in 20 test pages), restricted to leakage-controlled pages when an audit exists.
+- Colab's T4 has no fast bfloat16, so the script automatically trains in float16 with loss scaling there (and in bfloat16 on Ampere or newer).
+
 ## Train the model on a local GPU
 
-Tested path: Windows + WSL2 (Ubuntu) + NVIDIA laptop GPU. The Windows NVIDIA driver is enough; do not install a driver inside WSL.
+Tested path: Windows + WSL2 (Ubuntu) + NVIDIA laptop GPU. The Windows NVIDIA driver is enough; do not install a driver inside WSL. **Needs enough RAM for WSL** (see the last bullet below); on a 16 GB laptop with Docker Desktop also running, prefer Colab.
 
 ```bash
 cd ~/projects/document-classifier
