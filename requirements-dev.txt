@@ -6,3 +6,4 @@ moto[server]==5.2.3
 ruff==0.15.11
 mypy==1.18.2
 types-paramiko==4.0.0.20250822
+tqdm==4.70.1  # also pinned in requirements-train.txt; the unit tests run the training script

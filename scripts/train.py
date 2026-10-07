@@ -13,6 +13,15 @@ constructor, so training and inference cannot drift apart.
 
     python -m scripts.train --smoke          # ~5 min dry run on a small subset
     python -m scripts.train                  # full run; re-run to resume an interrupted one
+
+Data comes from extracted TIFFs (--data-root) or, for Colab, from the resumable 224 px cache
+built by `scripts/rvl_cache.py` (--cache-dir). Checkpoints go to --work-dir (put it on Drive
+on Colab) every few hundred steps, so re-running the same command after an interruption
+continues where it stopped.
+
+If `clean_test.txt` from `scripts/audit_dataset.py` is found in --audit-dir, the model card
+reports the official test score (the quality gate, comparable to published work) and a
+leakage-controlled score, and the golden set is drawn from the leakage-controlled pages.
 """
 
 from __future__ import annotations
@@ -25,6 +34,7 @@ import os
 import platform
 import random
 import shutil
+import subprocess
 import time
 from pathlib import Path
 
@@ -47,6 +57,7 @@ from app.classifier.preprocessing import (
     load_image,
     to_tensor,
 )
+from scripts.rvl_cache import CachedDataset, CachedRVL, safe_name
 
 REPO = Path(__file__).resolve().parents[1]
 MODELS_DIR = REPO / "app" / "classifier" / "models"
@@ -75,6 +86,22 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     p.add_argument("--data-root", type=Path, default=Path.home() / "data" / "rvl-cdip")
     p.add_argument("--work-dir", type=Path, default=Path.home() / "data" / "rvl-cdip-run")
+    p.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="train from the 224 px cache built by scripts/rvl_cache.py instead of --data-root",
+    )
+    p.add_argument(
+        "--local-cache",
+        type=Path,
+        help="fast local disk for the unpacked cache (default: --work-dir/cache-local; on Colab "
+        "use /content/cache-local, not Drive)",
+    )
+    p.add_argument(
+        "--audit-dir",
+        type=Path,
+        help="where scripts/audit_dataset.py wrote clean_test.txt (default: --work-dir/audit)",
+    )
     p.add_argument("--backbone", choices=sorted(WEIGHTS_ENUM), default="convnext_tiny")
     p.add_argument("--epochs", type=int, default=2)
     p.add_argument("--batch-size", type=int, default=96)
@@ -115,6 +142,18 @@ def memory_gb() -> tuple[float, float] | None:
         return None
 
 
+def git_state() -> dict | None:
+    """Commit the artifacts were trained from, so the model card is reproducible."""
+    try:
+        run = lambda *a: subprocess.check_output(a, cwd=REPO, text=True).strip()  # noqa: E731
+        return {
+            "commit": run("git", "rev-parse", "HEAD"),
+            "dirty": bool(run("git", "status", "--porcelain", "--untracked-files=no")),
+        }
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
 def read_split(root: Path, name: str) -> list[tuple[Path, int]]:
     rows = []
     for line in (root / "labels" / f"{name}.txt").read_text().splitlines():
@@ -147,9 +186,10 @@ def collate(batch):
     return torch.stack(xs), torch.tensor(ys), torch.tensor(idx)
 
 
-def loader(rows, train: bool, args) -> DataLoader:
+def loader(rows, train: bool, args, cache: CachedRVL | None = None) -> DataLoader:
+    dataset = CachedDataset(cache, rows, train) if cache else RVLDataset(rows, train)
     return DataLoader(
-        RVLDataset(rows, train),
+        dataset,
         batch_size=args.batch_size,
         shuffle=train,
         num_workers=args.workers,
@@ -214,6 +254,8 @@ def pick_golden(test_p, test_y, n: int = 50) -> list[int]:
 
 def main() -> None:
     args = parse_args()
+    # load_classifier() turns autograd off process-wide for the worker; don't inherit that.
+    torch.set_grad_enabled(True)
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -236,9 +278,38 @@ def main() -> None:
                 "killed, lower --workers or raise WSL's memory limit (see RUNBOOK.md)."
             )
 
-    train_rows = read_split(args.data_root, "train")
-    val_rows = read_split(args.data_root, "val")
-    test_rows = read_split(args.data_root, "test")
+    git = git_state()  # taken before any artifact is written, so "dirty" means the code
+    cache: CachedRVL | None = None
+    if args.cache_dir:
+        cache = CachedRVL(args.cache_dir, args.local_cache or args.work_dir / "cache-local")
+        train_rows, val_rows, test_rows = (cache.rows(s) for s in ("train", "validation", "test"))
+    else:
+        train_rows = read_split(args.data_root, "train")
+        val_rows = read_split(args.data_root, "val")
+        test_rows = read_split(args.data_root, "test")
+
+    def rel_of(ref) -> str:
+        """Path of a page as written in the published label files."""
+        return str(cache.paths[ref]) if cache else str(ref.relative_to(args.data_root / "images"))
+
+    audit_dir = args.audit_dir or args.work_dir / "audit"
+    clean_file = audit_dir / "clean_test.txt"
+    clean_paths = set(clean_file.read_text().split()) if clean_file.exists() else None
+    summary_file = audit_dir / "summary.json"
+    audit_summary = (
+        {
+            k: v
+            for k, v in json.loads(summary_file.read_text()).items()
+            if k != "largest_duplicate_groups"
+        }
+        if summary_file.exists()
+        else None
+    )
+    print(
+        f"leakage-controlled test set: {len(clean_paths):,} pages"
+        if clean_paths is not None
+        else "no audit found (run scripts/audit_dataset.py): official test score only"
+    )
     if args.smoke:
         train_rows = random.sample(train_rows, min(2000, len(train_rows)))
         val_rows = random.sample(val_rows, min(1000, len(val_rows)))
@@ -258,15 +329,16 @@ def main() -> None:
     model.classifier[-1] = torch.nn.Linear(model.classifier[-1].in_features, NUM_CLASSES)
     model = model.to(device).to(memory_format=torch.channels_last)
 
-    train_dl = loader(train_rows, True, args)
-    val_dl = loader(val_rows, False, args)
-    test_dl = loader(test_rows, False, args)
+    train_dl = loader(train_rows, True, args, cache)
+    val_dl = loader(val_rows, False, args, cache)
+    test_dl = loader(test_rows, False, args, cache)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     total_steps = args.epochs * len(train_dl)
-    # 5 % warm-up, but at least a few steps so very short (smoke) runs stay valid.
+    # 5 % warm-up, but at least a few steps so very short (smoke) runs stay valid. The cap
+    # keeps the warm-up phase shorter than the whole run (OneCycleLR divides by zero otherwise).
     sched = torch.optim.lr_scheduler.OneCycleLR(
-        opt, max_lr=args.lr, total_steps=total_steps, pct_start=max(0.05, 3 / total_steps)
+        opt, max_lr=args.lr, total_steps=total_steps, pct_start=min(0.5, max(0.05, 3 / total_steps))
     )
     loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
     precision = amp_dtype(device)
@@ -372,9 +444,51 @@ def main() -> None:
     for c, a in per_class.items():
         print(f"  {c:24s} {a:.4f}" if a is not None else f"  {c:24s} n/a")
 
+    # ---- leakage-controlled test score ---------------------------------------
+    leakage_controlled = None
+    if clean_paths is not None:
+        keep = torch.tensor([rel_of(test_rows[i][0]) in clean_paths for i in test_i.tolist()])
+        if keep.any():
+            leakage_controlled = {
+                "top1": topk(test_p[keep], test_y[keep], 1),
+                "top5": topk(test_p[keep], test_y[keep], 5),
+                "n": int(keep.sum()),
+                "policy": "official test pages that decode, have no pixel-identical twin in "
+                "train or validation, are not in a conflicting-label duplicate group, and are "
+                "the first occurrence of their pixels within test",
+            }
+            print(
+                f"TEST (leakage-controlled) top-1 {leakage_controlled['top1']:.4f}  "
+                f"top-5 {leakage_controlled['top5']:.4f}  (n={leakage_controlled['n']:,})"
+            )
+
     # ---- golden set: expected outputs recorded on CPU in float32 --------------
     # CI replays on CPU; GPU / reduced-precision numbers would not match within 1e-6.
-    golden_rows = [test_rows[test_i[j].item()] for j in pick_golden(test_p, test_y)]
+    # Golden pages must be real full-size TIFFs. Extracted data has them all; the cache keeps
+    # the originals of 1 in 20 test pages (its "golden pool"), so the pick is made from those.
+    # When an audit is available, only leakage-controlled pages are eligible.
+    pool = {p.name for p in cache.golden_dir.iterdir()} if cache else None
+
+    def golden_source(ref) -> Path | None:
+        if cache is None:
+            return ref
+        name = safe_name(rel_of(ref))
+        return cache.golden_dir / name if name in pool else None
+
+    eligible = [
+        j
+        for j in range(len(test_y))
+        if golden_source(test_rows[test_i[j].item()][0]) is not None
+        and (clean_paths is None or rel_of(test_rows[test_i[j].item()][0]) in clean_paths)
+    ]
+    cand = torch.tensor(eligible, dtype=torch.long)
+    golden_rows = [
+        test_rows[test_i[cand[j]].item()] for j in pick_golden(test_p[cand], test_y[cand])
+    ]
+    if len(golden_rows) < 50 and not args.smoke:
+        raise SystemExit(
+            f"Only {len(golden_rows)} pages are eligible for the golden set (need 50)."
+        )
     models_dir.mkdir(parents=True, exist_ok=True)
     golden_dir = eval_dir / "golden_images"
     if golden_dir.exists():
@@ -390,9 +504,9 @@ def main() -> None:
 
     images, correct1, correct5 = [], 0, 0
     with torch.inference_mode():
-        for n, (path, true) in enumerate(golden_rows):
+        for n, (ref, true) in enumerate(golden_rows):
             fname = f"{n:02d}_{RVL_CDIP_CLASSES[true]}.tif"
-            shutil.copy(path, golden_dir / fname)
+            shutil.copy(golden_source(ref), golden_dir / fname)
             x = to_tensor(load_image(golden_dir / fname)).unsqueeze(0)
             p = torch.softmax(cpu_model(x), 1)[0]
             vals, idx = p.topk(5)
@@ -443,7 +557,12 @@ def main() -> None:
         },
         "metrics": {
             "test": {"top1": test_top1, "top5": test_top5, "n": int(len(test_y))},
-            "golden": {"top1": correct1 / n_golden, "top5": correct5 / n_golden, "n": n_golden},
+            "test_leakage_controlled": leakage_controlled,
+            "golden": {
+                "top1": correct1 / n_golden if n_golden else None,
+                "top5": correct5 / n_golden if n_golden else None,
+                "n": n_golden,
+            },
             "per_class_test_accuracy": per_class,
         },
         "sha256": sha256_file(weights_path),
@@ -456,7 +575,15 @@ def main() -> None:
             "gpu": torch.cuda.get_device_name(0) if device == "cuda" else None,
             "platform": platform.platform(),
         },
-        "dataset": {"name": "RVL-CDIP", "license": "academic / research use only"},
+        "dataset": {
+            "name": "RVL-CDIP",
+            "source": "huggingface.co/datasets/aharley/rvl_cdip (official 320k/40k/40k splits)",
+            "license": "academic / research use only",
+            "input": "224 px cache (scripts/rvl_cache.py)" if cache else "extracted TIFFs",
+            "unreadable_images_dropped": cache.meta["decode_errors"] if cache else None,
+            "audit": audit_summary,
+        },
+        "git": git,
         "trained_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
     }
     (models_dir / "model_card.json").write_text(json.dumps(card, indent=2) + "\n")
