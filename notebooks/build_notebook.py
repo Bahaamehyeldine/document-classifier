@@ -71,7 +71,7 @@ code("""
 # ==== Run or resume (after any disconnect, run only this cell) ====
 # Keep these settings unchanged between runs: a checkpoint only resumes with the settings it was saved with.
 REPO_URL = "https://github.com/Bahaamehyeldine/document-classifier.git"
-REPO_BRANCH = "colab-cache"   # switch back to "main" once this branch is merged
+REPO_BRANCH = "main"
 BACKBONE = "convnext_tiny"   # or "convnext_small" (slower, about 1 point better)
 EPOCHS = 2
 BATCH_SIZE = 96

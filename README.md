@@ -24,7 +24,7 @@ flowchart LR
     vault[(Vault)] -. secrets at startup .-> api & worker & ingest
 ```
 
-> **Status.** The whole service is implemented and tested: auth and roles, SFTP ingestion, inference worker, caching, audit log, Vault secrets, CI with a compose smoke test. What remains is **training the model** on Colab (see [Train the model](#train-the-model)). Until the weights are committed, the api and worker correctly refuse to start, and CI exercises the pipeline up to the queued job.
+> **Status.** Implemented, trained and tested end to end: auth and roles, SFTP ingestion, inference worker, caching, audit log, Vault secrets, a trained ConvNeXt-Tiny classifier (see [Results](#results)), and CI that replays the golden set and runs a compose smoke test in which a dropped TIFF is classified and visible through the API.
 
 ---
 
@@ -97,6 +97,21 @@ curl -H "Authorization: Bearer $TOKEN" localhost:8000/batches
 | Input | first page, grayscale → RGB, 224×224, ImageNet normalization (`app/classifier/preprocessing.py`) |
 | Training | Colab GPU via [`notebooks/train_rvl_cdip.ipynb`](notebooks/train_rvl_cdip.ipynb); the local stack never trains |
 | Artifacts | `app/classifier/models/classifier.pt` (git LFS), `model_card.json`, 50-image golden set in `app/classifier/eval/` |
+
+### Results
+
+| | |
+|---|---|
+| Backbone / pretrained weights | `convnext_tiny` / `ConvNeXt_Tiny_Weights.IMAGENET1K_V1` (torchvision) |
+| Freeze policy | none: full fine-tune, all layers trainable |
+| Training | 2 epochs on the full 320k training split, AdamW + OneCycle, label smoothing 0.1, float16 mixed precision on a Colab T4 (about 135 minutes), seed 42; best epoch chosen on **validation** (top-1 0.9188) |
+| Test top-1 / top-5 (official split, n = 39,999) | **0.9165 / 0.9894** |
+| Test top-1 / top-5 (leakage-controlled, n = 39,762) | 0.9167 / 0.9895 |
+| Worst class (test accuracy) | `scientific_report`, 0.832 (then `form` 0.840 and `presentation` 0.845) |
+| Best class | `email`, 0.988 |
+| Golden set (50 pages) | top-1 0.80, top-5 0.98: deliberately includes 18 ambiguous pages (the closest top-1/top-2 call of each class, plus the 2 closest overall), so it is a regression set, not an accuracy estimate |
+
+The test split was evaluated once, on the checkpoint chosen by validation. **Dataset caveats found by auditing RVL-CDIP** (`scripts/audit_dataset.py`, official splits unchanged): 2,433 images sit in exact-duplicate groups, 227 test pages have a pixel-identical twin in train or validation (hence the second, leakage-controlled score, which is essentially the same), and one test page cannot be decoded (the official `n` is therefore 39,999). RVL-CDIP is licensed for academic / research use only (see [LICENSES.md](LICENSES.md)). Limitation: only a 2-epoch full fine-tune was run; no freeze-policy or backbone comparison was done, so `convnext_small` and partial fine-tuning are untested alternatives.
 
 **Model quality gate: test top-1 ≥ 0.85.** The api and worker refuse to start if the weights are missing, their SHA-256 does not match the model card, or the model card's full-test top-1 is below this threshold.
 
