@@ -30,6 +30,12 @@ wait_for() {  # wait_for <seconds> <description> <command...>
   done
 }
 
+# Start from a clean slate, as CI always does. Leftover volumes break reruns: an admin created
+# by an earlier run keeps its old password (so login fails), and a volume made by an older
+# image can be unwritable. NOTE: this deletes this compose project's containers and volumes.
+echo "== reset compose project (containers and volumes)"
+$COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+
 echo "== build and start infrastructure"
 $COMPOSE build
 $COMPOSE up -d db redis minio sftp vault

@@ -23,6 +23,14 @@ EPOCHS="${EPOCHS:-2}"
 BATCH_SIZE="${BATCH_SIZE:-96}"
 TRAIN_SUBSET="${TRAIN_SUBSET:-}"
 DEVICE="${DEVICE:-cuda}"
+# USE_CACHE=1 (default): build a 224 px cache of the dataset once, on Drive, and train from it
+# (scripts/rvl_cache.py). It survives Colab deleting the runtime: no 36 GB re-download and no
+# re-decoding of full-size TIFFs. USE_CACHE=0 streams the raw archive onto the runtime disk instead.
+USE_CACHE="${USE_CACHE:-1}"
+TRAIN_PER_CLASS="${TRAIN_PER_CLASS:-}"      # cache only N training pages per class (smaller cache)
+CACHE_DIR="${CACHE_DIR:-$DRIVE_DIR/cache}"
+AUDIT_DIR="${AUDIT_DIR:-$DRIVE_DIR/audit}"
+LOCAL_CACHE="${LOCAL_CACHE:-/content/cache-local}"   # unpacked copy on fast local disk
 HF_BASE="${HF_BASE:-https://huggingface.co/datasets/aharley/rvl_cdip/resolve/main/data}"
 ARTIFACTS_ZIP="$DRIVE_DIR/classifier_artifacts.zip"
 
@@ -70,7 +78,18 @@ python -c "import torch, torchvision; print('    torch', torch.__version__, '| t
 
 # ---- 3. Dataset ----------------------------------------------------------------------
 step "3/6 RVL-CDIP dataset"
-if [[ -f "$DATA_ROOT/.extracted" ]]; then
+if [[ "$USE_CACHE" == "1" ]]; then
+  echo "    224 px cache on Drive: $CACHE_DIR (one-time ~1 h; resumes if interrupted)"
+  cache_args=(--out "$CACHE_DIR" --workers 2)
+  if [[ -n "$TRAIN_PER_CLASS" ]]; then cache_args+=(--train-per-class "$TRAIN_PER_CLASS"); fi
+  python -m scripts.rvl_cache build "${cache_args[@]}" \
+    || fail "The cache is not finished (stream interrupted, or incomplete). Run this cell again: it resumes."
+  echo "    Auditing the dataset for duplicates and train/test leakage (reads the recorded hashes)..."
+  mkdir -p "$AUDIT_DIR"
+  python -m scripts.audit_dataset --cache-dir "$CACHE_DIR" --out-dir "$AUDIT_DIR" > "$AUDIT_DIR/audit.log"
+  grep -E '"(decode_errors|exact_duplicate_images_total|test_images_with_twin_in_train_or_validation|official_test_n|leakage_controlled_test_n)"' \
+    "$AUDIT_DIR/summary.json" | sed 's/^/    /' || true
+elif [[ -f "$DATA_ROOT/.extracted" ]]; then
   skip "dataset extracted in $DATA_ROOT"
 else
   mkdir -p "$DATA_ROOT/labels"
@@ -90,13 +109,18 @@ else
   trap - EXIT
   touch "$DATA_ROOT/.extracted"
 fi
-wc -l "$DATA_ROOT"/labels/*.txt | sed 's/^/    /'
+if [[ "$USE_CACHE" != "1" ]]; then wc -l "$DATA_ROOT"/labels/*.txt | sed 's/^/    /'; fi
 
 # ---- 4. Train, evaluate, pick the golden set, write the model card --------------------
 # scripts/train.py resumes from $WORK_DIR by itself, mid-epoch if needed.
 step "4/6 Training"
-train_args=(--data-root "$DATA_ROOT" --work-dir "$WORK_DIR" --backbone "$BACKBONE"
+train_args=(--work-dir "$WORK_DIR" --backbone "$BACKBONE"
   --epochs "$EPOCHS" --batch-size "$BATCH_SIZE" --device "$DEVICE")
+if [[ "$USE_CACHE" == "1" ]]; then
+  train_args+=(--cache-dir "$CACHE_DIR" --local-cache "$LOCAL_CACHE" --audit-dir "$AUDIT_DIR")
+else
+  train_args+=(--data-root "$DATA_ROOT")
+fi
 if [[ -n "$TRAIN_SUBSET" ]]; then train_args+=(--train-subset "$TRAIN_SUBSET"); fi
 # shellcheck disable=SC2086  # EXTRA_ARGS is intentionally word-split
 python -m scripts.train "${train_args[@]}" ${EXTRA_ARGS:-}

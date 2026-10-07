@@ -1,0 +1,1405 @@
+{
+  "generated_on": "cpu-float32",
+  "images": [
+    {
+      "file": "00_letter.tif",
+      "true_label": "letter",
+      "expected_label": "letter",
+      "expected_confidence": 0.9284734129905701,
+      "top5": [
+        [
+          "letter",
+          0.9284734129905701
+        ],
+        [
+          "advertisement",
+          0.0064322976395487785
+        ],
+        [
+          "questionnaire",
+          0.006069469265639782
+        ],
+        [
+          "memo",
+          0.005926363170146942
+        ],
+        [
+          "specification",
+          0.005561253521591425
+        ]
+      ]
+    },
+    {
+      "file": "01_letter.tif",
+      "true_label": "letter",
+      "expected_label": "letter",
+      "expected_confidence": 0.9210325479507446,
+      "top5": [
+        [
+          "letter",
+          0.9210325479507446
+        ],
+        [
+          "form",
+          0.011287696659564972
+        ],
+        [
+          "email",
+          0.0072297630831599236
+        ],
+        [
+          "scientific_report",
+          0.006572938058525324
+        ],
+        [
+          "advertisement",
+          0.006318607367575169
+        ]
+      ]
+    },
+    {
+      "file": "02_letter.tif",
+      "true_label": "letter",
+      "expected_label": "scientific_report",
+      "expected_confidence": 0.29094579815864563,
+      "top5": [
+        [
+          "scientific_report",
+          0.29094579815864563
+        ],
+        [
+          "presentation",
+          0.2713497579097748
+        ],
+        [
+          "news_article",
+          0.2546050250530243
+        ],
+        [
+          "letter",
+          0.05394311249256134
+        ],
+        [
+          "scientific_publication",
+          0.038398876786231995
+        ]
+      ]
+    },
+    {
+      "file": "03_form.tif",
+      "true_label": "form",
+      "expected_label": "form",
+      "expected_confidence": 0.9389800429344177,
+      "top5": [
+        [
+          "form",
+          0.9389800429344177
+        ],
+        [
+          "letter",
+          0.006913918070495129
+        ],
+        [
+          "scientific_report",
+          0.005813544616103172
+        ],
+        [
+          "file_folder",
+          0.005073650740087032
+        ],
+        [
+          "memo",
+          0.0048918407410383224
+        ]
+      ]
+    },
+    {
+      "file": "04_form.tif",
+      "true_label": "form",
+      "expected_label": "form",
+      "expected_confidence": 0.9379894733428955,
+      "top5": [
+        [
+          "form",
+          0.9379894733428955
+        ],
+        [
+          "scientific_report",
+          0.010362599976360798
+        ],
+        [
+          "memo",
+          0.00840600673109293
+        ],
+        [
+          "letter",
+          0.005772335454821587
+        ],
+        [
+          "questionnaire",
+          0.005258149933069944
+        ]
+      ]
+    },
+    {
+      "file": "05_form.tif",
+      "true_label": "form",
+      "expected_label": "questionnaire",
+      "expected_confidence": 0.2778370976448059,
+      "top5": [
+        [
+          "questionnaire",
+          0.2778370976448059
+        ],
+        [
+          "form",
+          0.2403823286294937
+        ],
+        [
+          "letter",
+          0.13598959147930145
+        ],
+        [
+          "invoice",
+          0.10129031538963318
+        ],
+        [
+          "memo",
+          0.09502381831407547
+        ]
+      ]
+    },
+    {
+      "file": "06_email.tif",
+      "true_label": "email",
+      "expected_label": "email",
+      "expected_confidence": 0.9186839461326599,
+      "top5": [
+        [
+          "email",
+          0.9186839461326599
+        ],
+        [
+          "letter",
+          0.008617008104920387
+        ],
+        [
+          "invoice",
+          0.007760853040963411
+        ],
+        [
+          "budget",
+          0.006386405788362026
+        ],
+        [
+          "memo",
+          0.006295085418969393
+        ]
+      ]
+    },
+    {
+      "file": "07_email.tif",
+      "true_label": "email",
+      "expected_label": "email",
+      "expected_confidence": 0.9185876846313477,
+      "top5": [
+        [
+          "email",
+          0.9185876846313477
+        ],
+        [
+          "memo",
+          0.008895987644791603
+        ],
+        [
+          "questionnaire",
+          0.008657733909785748
+        ],
+        [
+          "advertisement",
+          0.007328254636377096
+        ],
+        [
+          "file_folder",
+          0.007176017854362726
+        ]
+      ]
+    },
+    {
+      "file": "08_email.tif",
+      "true_label": "email",
+      "expected_label": "questionnaire",
+      "expected_confidence": 0.5892941951751709,
+      "top5": [
+        [
+          "questionnaire",
+          0.5892941951751709
+        ],
+        [
+          "specification",
+          0.11481519043445587
+        ],
+        [
+          "email",
+          0.11387357115745544
+        ],
+        [
+          "memo",
+          0.04609110578894615
+        ],
+        [
+          "advertisement",
+          0.04206295311450958
+        ]
+      ]
+    },
+    {
+      "file": "09_handwritten.tif",
+      "true_label": "handwritten",
+      "expected_label": "handwritten",
+      "expected_confidence": 0.9243060350418091,
+      "top5": [
+        [
+          "handwritten",
+          0.9243060350418091
+        ],
+        [
+          "letter",
+          0.008563295006752014
+        ],
+        [
+          "form",
+          0.005860978737473488
+        ],
+        [
+          "resume",
+          0.005652041640132666
+        ],
+        [
+          "questionnaire",
+          0.005480864550918341
+        ]
+      ]
+    },
+    {
+      "file": "10_handwritten.tif",
+      "true_label": "handwritten",
+      "expected_label": "handwritten",
+      "expected_confidence": 0.9243189692497253,
+      "top5": [
+        [
+          "handwritten",
+          0.9243189692497253
+        ],
+        [
+          "advertisement",
+          0.008223328739404678
+        ],
+        [
+          "letter",
+          0.007631418760865927
+        ],
+        [
+          "memo",
+          0.00619921600446105
+        ],
+        [
+          "form",
+          0.0055240788497030735
+        ]
+      ]
+    },
+    {
+      "file": "11_handwritten.tif",
+      "true_label": "handwritten",
+      "expected_label": "handwritten",
+      "expected_confidence": 0.27090984582901,
+      "top5": [
+        [
+          "handwritten",
+          0.27090984582901
+        ],
+        [
+          "letter",
+          0.2601568400859833
+        ],
+        [
+          "form",
+          0.141501784324646
+        ],
+        [
+          "questionnaire",
+          0.12549448013305664
+        ],
+        [
+          "specification",
+          0.055088628083467484
+        ]
+      ]
+    },
+    {
+      "file": "12_advertisement.tif",
+      "true_label": "advertisement",
+      "expected_label": "advertisement",
+      "expected_confidence": 0.9437304735183716,
+      "top5": [
+        [
+          "advertisement",
+          0.9437304735183716
+        ],
+        [
+          "questionnaire",
+          0.006532838102430105
+        ],
+        [
+          "form",
+          0.006418223027139902
+        ],
+        [
+          "news_article",
+          0.0058486005291342735
+        ],
+        [
+          "scientific_report",
+          0.005126818083226681
+        ]
+      ]
+    },
+    {
+      "file": "13_advertisement.tif",
+      "true_label": "advertisement",
+      "expected_label": "advertisement",
+      "expected_confidence": 0.9361598491668701,
+      "top5": [
+        [
+          "advertisement",
+          0.9361598491668701
+        ],
+        [
+          "scientific_report",
+          0.0058524468913674355
+        ],
+        [
+          "file_folder",
+          0.00522816414013505
+        ],
+        [
+          "handwritten",
+          0.004711398389190435
+        ],
+        [
+          "specification",
+          0.00456508994102478
+        ]
+      ]
+    },
+    {
+      "file": "14_advertisement.tif",
+      "true_label": "advertisement",
+      "expected_label": "advertisement",
+      "expected_confidence": 0.4522112011909485,
+      "top5": [
+        [
+          "advertisement",
+          0.4522112011909485
+        ],
+        [
+          "handwritten",
+          0.4247777462005615
+        ],
+        [
+          "questionnaire",
+          0.02428172342479229
+        ],
+        [
+          "form",
+          0.015446470119059086
+        ],
+        [
+          "letter",
+          0.014746424742043018
+        ]
+      ]
+    },
+    {
+      "file": "15_scientific_report.tif",
+      "true_label": "scientific_report",
+      "expected_label": "scientific_report",
+      "expected_confidence": 0.9269193410873413,
+      "top5": [
+        [
+          "scientific_report",
+          0.9269193410873413
+        ],
+        [
+          "file_folder",
+          0.009809470735490322
+        ],
+        [
+          "form",
+          0.007030910346657038
+        ],
+        [
+          "presentation",
+          0.006692263763397932
+        ],
+        [
+          "handwritten",
+          0.005954226478934288
+        ]
+      ]
+    },
+    {
+      "file": "16_scientific_report.tif",
+      "true_label": "scientific_report",
+      "expected_label": "scientific_report",
+      "expected_confidence": 0.922886073589325,
+      "top5": [
+        [
+          "scientific_report",
+          0.922886073589325
+        ],
+        [
+          "letter",
+          0.006607725750654936
+        ],
+        [
+          "news_article",
+          0.006452350411564112
+        ],
+        [
+          "email",
+          0.006289297249168158
+        ],
+        [
+          "handwritten",
+          0.0061654336750507355
+        ]
+      ]
+    },
+    {
+      "file": "17_scientific_report.tif",
+      "true_label": "scientific_report",
+      "expected_label": "scientific_report",
+      "expected_confidence": 0.4170038402080536,
+      "top5": [
+        [
+          "scientific_report",
+          0.4170038402080536
+        ],
+        [
+          "presentation",
+          0.4110375940799713
+        ],
+        [
+          "resume",
+          0.07477105408906937
+        ],
+        [
+          "budget",
+          0.019392400979995728
+        ],
+        [
+          "specification",
+          0.011023587547242641
+        ]
+      ]
+    },
+    {
+      "file": "18_scientific_publication.tif",
+      "true_label": "scientific_publication",
+      "expected_label": "scientific_publication",
+      "expected_confidence": 0.9241510629653931,
+      "top5": [
+        [
+          "scientific_publication",
+          0.9241510629653931
+        ],
+        [
+          "handwritten",
+          0.007476098835468292
+        ],
+        [
+          "scientific_report",
+          0.006401575170457363
+        ],
+        [
+          "invoice",
+          0.006110053975135088
+        ],
+        [
+          "specification",
+          0.0055236597545444965
+        ]
+      ]
+    },
+    {
+      "file": "19_scientific_publication.tif",
+      "true_label": "scientific_publication",
+      "expected_label": "scientific_publication",
+      "expected_confidence": 0.9237454533576965,
+      "top5": [
+        [
+          "scientific_publication",
+          0.9237454533576965
+        ],
+        [
+          "invoice",
+          0.006762104574590921
+        ],
+        [
+          "memo",
+          0.006552997510880232
+        ],
+        [
+          "scientific_report",
+          0.006368162110447884
+        ],
+        [
+          "resume",
+          0.0060212877579033375
+        ]
+      ]
+    },
+    {
+      "file": "20_scientific_publication.tif",
+      "true_label": "scientific_publication",
+      "expected_label": "scientific_report",
+      "expected_confidence": 0.24972844123840332,
+      "top5": [
+        [
+          "scientific_report",
+          0.24972844123840332
+        ],
+        [
+          "presentation",
+          0.24336953461170197
+        ],
+        [
+          "file_folder",
+          0.10795600712299347
+        ],
+        [
+          "scientific_publication",
+          0.09643291682004929
+        ],
+        [
+          "news_article",
+          0.059941839426755905
+        ]
+      ]
+    },
+    {
+      "file": "21_specification.tif",
+      "true_label": "specification",
+      "expected_label": "specification",
+      "expected_confidence": 0.9273666143417358,
+      "top5": [
+        [
+          "specification",
+          0.9273666143417358
+        ],
+        [
+          "scientific_report",
+          0.010749466717243195
+        ],
+        [
+          "questionnaire",
+          0.0061030397191643715
+        ],
+        [
+          "handwritten",
+          0.005240288097411394
+        ],
+        [
+          "form",
+          0.0050788940861821175
+        ]
+      ]
+    },
+    {
+      "file": "22_specification.tif",
+      "true_label": "specification",
+      "expected_label": "specification",
+      "expected_confidence": 0.9274106025695801,
+      "top5": [
+        [
+          "specification",
+          0.9274106025695801
+        ],
+        [
+          "email",
+          0.0059867361560463905
+        ],
+        [
+          "advertisement",
+          0.005786457564681768
+        ],
+        [
+          "file_folder",
+          0.005442611873149872
+        ],
+        [
+          "handwritten",
+          0.005339859519153833
+        ]
+      ]
+    },
+    {
+      "file": "23_specification.tif",
+      "true_label": "specification",
+      "expected_label": "questionnaire",
+      "expected_confidence": 0.4113808274269104,
+      "top5": [
+        [
+          "questionnaire",
+          0.4113808274269104
+        ],
+        [
+          "form",
+          0.40480294823646545
+        ],
+        [
+          "budget",
+          0.04217721149325371
+        ],
+        [
+          "presentation",
+          0.019131632521748543
+        ],
+        [
+          "memo",
+          0.01826510950922966
+        ]
+      ]
+    },
+    {
+      "file": "24_file_folder.tif",
+      "true_label": "file_folder",
+      "expected_label": "file_folder",
+      "expected_confidence": 0.928549587726593,
+      "top5": [
+        [
+          "file_folder",
+          0.928549587726593
+        ],
+        [
+          "presentation",
+          0.007392505183815956
+        ],
+        [
+          "invoice",
+          0.006443480961024761
+        ],
+        [
+          "form",
+          0.005883146543055773
+        ],
+        [
+          "resume",
+          0.00558451097458601
+        ]
+      ]
+    },
+    {
+      "file": "25_file_folder.tif",
+      "true_label": "file_folder",
+      "expected_label": "file_folder",
+      "expected_confidence": 0.9259337782859802,
+      "top5": [
+        [
+          "file_folder",
+          0.9259337782859802
+        ],
+        [
+          "specification",
+          0.006054654251784086
+        ],
+        [
+          "news_article",
+          0.005807498004287481
+        ],
+        [
+          "resume",
+          0.005370130762457848
+        ],
+        [
+          "invoice",
+          0.005368246231228113
+        ]
+      ]
+    },
+    {
+      "file": "26_file_folder.tif",
+      "true_label": "file_folder",
+      "expected_label": "presentation",
+      "expected_confidence": 0.285671591758728,
+      "top5": [
+        [
+          "presentation",
+          0.285671591758728
+        ],
+        [
+          "file_folder",
+          0.2648232579231262
+        ],
+        [
+          "scientific_report",
+          0.07581771165132523
+        ],
+        [
+          "budget",
+          0.06206505745649338
+        ],
+        [
+          "advertisement",
+          0.057988960295915604
+        ]
+      ]
+    },
+    {
+      "file": "27_news_article.tif",
+      "true_label": "news_article",
+      "expected_label": "news_article",
+      "expected_confidence": 0.9260593056678772,
+      "top5": [
+        [
+          "news_article",
+          0.9260593056678772
+        ],
+        [
+          "advertisement",
+          0.007605364080518484
+        ],
+        [
+          "scientific_publication",
+          0.0071124061942100525
+        ],
+        [
+          "specification",
+          0.005740931257605553
+        ],
+        [
+          "budget",
+          0.005672524683177471
+        ]
+      ]
+    },
+    {
+      "file": "28_news_article.tif",
+      "true_label": "news_article",
+      "expected_label": "news_article",
+      "expected_confidence": 0.9259427785873413,
+      "top5": [
+        [
+          "news_article",
+          0.9259427785873413
+        ],
+        [
+          "file_folder",
+          0.006161908153444529
+        ],
+        [
+          "letter",
+          0.005416435189545155
+        ],
+        [
+          "questionnaire",
+          0.005279728211462498
+        ],
+        [
+          "email",
+          0.00523328548297286
+        ]
+      ]
+    },
+    {
+      "file": "29_news_article.tif",
+      "true_label": "news_article",
+      "expected_label": "scientific_publication",
+      "expected_confidence": 0.4414099156856537,
+      "top5": [
+        [
+          "scientific_publication",
+          0.4414099156856537
+        ],
+        [
+          "news_article",
+          0.43965840339660645
+        ],
+        [
+          "scientific_report",
+          0.02512793056666851
+        ],
+        [
+          "resume",
+          0.011607825756072998
+        ],
+        [
+          "presentation",
+          0.010812670923769474
+        ]
+      ]
+    },
+    {
+      "file": "30_budget.tif",
+      "true_label": "budget",
+      "expected_label": "budget",
+      "expected_confidence": 0.9392297863960266,
+      "top5": [
+        [
+          "budget",
+          0.9392297863960266
+        ],
+        [
+          "memo",
+          0.013034367933869362
+        ],
+        [
+          "news_article",
+          0.006860312074422836
+        ],
+        [
+          "form",
+          0.0050489939749240875
+        ],
+        [
+          "invoice",
+          0.004717872478067875
+        ]
+      ]
+    },
+    {
+      "file": "31_budget.tif",
+      "true_label": "budget",
+      "expected_label": "budget",
+      "expected_confidence": 0.9336954951286316,
+      "top5": [
+        [
+          "budget",
+          0.9336954951286316
+        ],
+        [
+          "invoice",
+          0.00671370467171073
+        ],
+        [
+          "resume",
+          0.00574350543320179
+        ],
+        [
+          "scientific_publication",
+          0.005497498903423548
+        ],
+        [
+          "letter",
+          0.005331408232450485
+        ]
+      ]
+    },
+    {
+      "file": "32_budget.tif",
+      "true_label": "budget",
+      "expected_label": "budget",
+      "expected_confidence": 0.3592980206012726,
+      "top5": [
+        [
+          "budget",
+          0.3592980206012726
+        ],
+        [
+          "scientific_report",
+          0.3201100528240204
+        ],
+        [
+          "specification",
+          0.11494197696447372
+        ],
+        [
+          "form",
+          0.07162905484437943
+        ],
+        [
+          "resume",
+          0.023019306361675262
+        ]
+      ]
+    },
+    {
+      "file": "33_invoice.tif",
+      "true_label": "invoice",
+      "expected_label": "invoice",
+      "expected_confidence": 0.9277468323707581,
+      "top5": [
+        [
+          "invoice",
+          0.9277468323707581
+        ],
+        [
+          "advertisement",
+          0.010772370733320713
+        ],
+        [
+          "form",
+          0.008015884086489677
+        ],
+        [
+          "specification",
+          0.0076247588731348515
+        ],
+        [
+          "questionnaire",
+          0.005894935689866543
+        ]
+      ]
+    },
+    {
+      "file": "34_invoice.tif",
+      "true_label": "invoice",
+      "expected_label": "invoice",
+      "expected_confidence": 0.9268317818641663,
+      "top5": [
+        [
+          "invoice",
+          0.9268317818641663
+        ],
+        [
+          "news_article",
+          0.006140562705695629
+        ],
+        [
+          "scientific_publication",
+          0.00608253525570035
+        ],
+        [
+          "advertisement",
+          0.006017077248543501
+        ],
+        [
+          "file_folder",
+          0.005798308178782463
+        ]
+      ]
+    },
+    {
+      "file": "35_invoice.tif",
+      "true_label": "invoice",
+      "expected_label": "invoice",
+      "expected_confidence": 0.5707435607910156,
+      "top5": [
+        [
+          "invoice",
+          0.5707435607910156
+        ],
+        [
+          "budget",
+          0.18528583645820618
+        ],
+        [
+          "form",
+          0.08427104353904724
+        ],
+        [
+          "questionnaire",
+          0.032512128353118896
+        ],
+        [
+          "specification",
+          0.030465856194496155
+        ]
+      ]
+    },
+    {
+      "file": "36_presentation.tif",
+      "true_label": "presentation",
+      "expected_label": "presentation",
+      "expected_confidence": 0.9537808895111084,
+      "top5": [
+        [
+          "presentation",
+          0.9537808895111084
+        ],
+        [
+          "news_article",
+          0.005277764517813921
+        ],
+        [
+          "memo",
+          0.004974947310984135
+        ],
+        [
+          "budget",
+          0.0046187411062419415
+        ],
+        [
+          "letter",
+          0.0037135074380785227
+        ]
+      ]
+    },
+    {
+      "file": "37_presentation.tif",
+      "true_label": "presentation",
+      "expected_label": "presentation",
+      "expected_confidence": 0.9392861723899841,
+      "top5": [
+        [
+          "presentation",
+          0.9392861723899841
+        ],
+        [
+          "specification",
+          0.007527511101216078
+        ],
+        [
+          "budget",
+          0.006843834649771452
+        ],
+        [
+          "invoice",
+          0.005630376748740673
+        ],
+        [
+          "resume",
+          0.005145619157701731
+        ]
+      ]
+    },
+    {
+      "file": "38_presentation.tif",
+      "true_label": "presentation",
+      "expected_label": "presentation",
+      "expected_confidence": 0.29889872670173645,
+      "top5": [
+        [
+          "presentation",
+          0.29889872670173645
+        ],
+        [
+          "news_article",
+          0.25728705525398254
+        ],
+        [
+          "resume",
+          0.2287292182445526
+        ],
+        [
+          "scientific_publication",
+          0.042519524693489075
+        ],
+        [
+          "scientific_report",
+          0.04106804355978966
+        ]
+      ]
+    },
+    {
+      "file": "39_questionnaire.tif",
+      "true_label": "questionnaire",
+      "expected_label": "questionnaire",
+      "expected_confidence": 0.9451197385787964,
+      "top5": [
+        [
+          "questionnaire",
+          0.9451197385787964
+        ],
+        [
+          "form",
+          0.010327042080461979
+        ],
+        [
+          "specification",
+          0.0054423320107162
+        ],
+        [
+          "scientific_publication",
+          0.00528078805655241
+        ],
+        [
+          "invoice",
+          0.004043229389935732
+        ]
+      ]
+    },
+    {
+      "file": "40_questionnaire.tif",
+      "true_label": "questionnaire",
+      "expected_label": "questionnaire",
+      "expected_confidence": 0.9303820133209229,
+      "top5": [
+        [
+          "questionnaire",
+          0.9303820133209229
+        ],
+        [
+          "news_article",
+          0.005510903894901276
+        ],
+        [
+          "advertisement",
+          0.0052672796882689
+        ],
+        [
+          "file_folder",
+          0.005201208870857954
+        ],
+        [
+          "presentation",
+          0.005192209035158157
+        ]
+      ]
+    },
+    {
+      "file": "41_questionnaire.tif",
+      "true_label": "questionnaire",
+      "expected_label": "scientific_report",
+      "expected_confidence": 0.37248849868774414,
+      "top5": [
+        [
+          "scientific_report",
+          0.37248849868774414
+        ],
+        [
+          "presentation",
+          0.3602828085422516
+        ],
+        [
+          "questionnaire",
+          0.06573031097650528
+        ],
+        [
+          "budget",
+          0.03172947093844414
+        ],
+        [
+          "memo",
+          0.02798096463084221
+        ]
+      ]
+    },
+    {
+      "file": "42_resume.tif",
+      "true_label": "resume",
+      "expected_label": "resume",
+      "expected_confidence": 0.9535158276557922,
+      "top5": [
+        [
+          "resume",
+          0.9535158276557922
+        ],
+        [
+          "scientific_publication",
+          0.006961492355912924
+        ],
+        [
+          "news_article",
+          0.005602552089840174
+        ],
+        [
+          "letter",
+          0.003609576029703021
+        ],
+        [
+          "presentation",
+          0.0036028006579726934
+        ]
+      ]
+    },
+    {
+      "file": "43_resume.tif",
+      "true_label": "resume",
+      "expected_label": "resume",
+      "expected_confidence": 0.9457380771636963,
+      "top5": [
+        [
+          "resume",
+          0.9457380771636963
+        ],
+        [
+          "presentation",
+          0.015488040633499622
+        ],
+        [
+          "scientific_publication",
+          0.006495906040072441
+        ],
+        [
+          "scientific_report",
+          0.0059845116920769215
+        ],
+        [
+          "news_article",
+          0.0041112438775599
+        ]
+      ]
+    },
+    {
+      "file": "44_resume.tif",
+      "true_label": "resume",
+      "expected_label": "resume",
+      "expected_confidence": 0.725155770778656,
+      "top5": [
+        [
+          "resume",
+          0.725155770778656
+        ],
+        [
+          "presentation",
+          0.1868477463722229
+        ],
+        [
+          "news_article",
+          0.02087230421602726
+        ],
+        [
+          "letter",
+          0.007810655515640974
+        ],
+        [
+          "scientific_publication",
+          0.00707138841971755
+        ]
+      ]
+    },
+    {
+      "file": "45_memo.tif",
+      "true_label": "memo",
+      "expected_label": "memo",
+      "expected_confidence": 0.9234711527824402,
+      "top5": [
+        [
+          "memo",
+          0.9234711527824402
+        ],
+        [
+          "letter",
+          0.0076028285548090935
+        ],
+        [
+          "invoice",
+          0.006174254231154919
+        ],
+        [
+          "news_article",
+          0.005964535754173994
+        ],
+        [
+          "advertisement",
+          0.005884899757802486
+        ]
+      ]
+    },
+    {
+      "file": "46_memo.tif",
+      "true_label": "memo",
+      "expected_label": "memo",
+      "expected_confidence": 0.9213814735412598,
+      "top5": [
+        [
+          "memo",
+          0.9213814735412598
+        ],
+        [
+          "advertisement",
+          0.007754555903375149
+        ],
+        [
+          "email",
+          0.006530775222927332
+        ],
+        [
+          "specification",
+          0.006477162707597017
+        ],
+        [
+          "form",
+          0.0062119741924107075
+        ]
+      ]
+    },
+    {
+      "file": "47_memo.tif",
+      "true_label": "memo",
+      "expected_label": "form",
+      "expected_confidence": 0.40215277671813965,
+      "top5": [
+        [
+          "form",
+          0.40215277671813965
+        ],
+        [
+          "memo",
+          0.3401811420917511
+        ],
+        [
+          "email",
+          0.12837094068527222
+        ],
+        [
+          "news_article",
+          0.019389092922210693
+        ],
+        [
+          "presentation",
+          0.013642850331962109
+        ]
+      ]
+    },
+    {
+      "file": "48_scientific_publication.tif",
+      "true_label": "scientific_publication",
+      "expected_label": "presentation",
+      "expected_confidence": 0.4579572379589081,
+      "top5": [
+        [
+          "presentation",
+          0.4579572379589081
+        ],
+        [
+          "scientific_report",
+          0.4323672950267792
+        ],
+        [
+          "scientific_publication",
+          0.01895720511674881
+        ],
+        [
+          "specification",
+          0.012645917944610119
+        ],
+        [
+          "news_article",
+          0.010051059536635876
+        ]
+      ]
+    },
+    {
+      "file": "49_questionnaire.tif",
+      "true_label": "questionnaire",
+      "expected_label": "questionnaire",
+      "expected_confidence": 0.28272148966789246,
+      "top5": [
+        [
+          "questionnaire",
+          0.28272148966789246
+        ],
+        [
+          "form",
+          0.2452603429555893
+        ],
+        [
+          "specification",
+          0.1658748984336853
+        ],
+        [
+          "resume",
+          0.08519082516431808
+        ],
+        [
+          "scientific_report",
+          0.04735112935304642
+        ]
+      ]
+    }
+  ]
+}

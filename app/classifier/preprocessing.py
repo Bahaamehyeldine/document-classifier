@@ -15,7 +15,10 @@ INPUT_SIZE = 224
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
-EVAL_TRANSFORM = v2.Compose(
+# The two halves of the eval transform are separate so the training cache can store the
+# result of the first (a uint8 224 x 224 page) and apply the second at load time. Their
+# composition is exactly what the service runs, which a test asserts.
+RESIZE_TRANSFORM = v2.Compose(
     [
         v2.ToImage(),
         v2.Resize(
@@ -23,10 +26,15 @@ EVAL_TRANSFORM = v2.Compose(
             interpolation=v2.InterpolationMode.BILINEAR,
             antialias=True,
         ),
+    ]
+)
+NORMALIZE_TRANSFORM = v2.Compose(
+    [
         v2.ToDtype(torch.float32, scale=True),
         v2.Normalize(IMAGENET_MEAN, IMAGENET_STD),
     ]
 )
+EVAL_TRANSFORM = v2.Compose([RESIZE_TRANSFORM, NORMALIZE_TRANSFORM])
 
 
 def _as_rgb(img: Image.Image) -> Image.Image:
