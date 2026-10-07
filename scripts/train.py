@@ -359,9 +359,12 @@ def main() -> None:
     }
     if ckpt_path.exists():
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-        if ckpt.get("config") != run_config:
+        # Checkpoints from an earlier branch also recorded where the data came from ("data").
+        # Cache or extracted files hold the same pages, so that field must not block a resume.
+        saved_config = {k: v for k, v in (ckpt.get("config") or {}).items() if k != "data"}
+        if saved_config != run_config:
             raise SystemExit(
-                f"{ckpt_path} was saved with different settings:\n  saved:   {ckpt.get('config')}\n"
+                f"{ckpt_path} was saved with different settings:\n  saved:   {saved_config}\n"
                 f"  current: {run_config}\nRe-run with the same options, or delete {work} "
                 "to start a new run."
             )

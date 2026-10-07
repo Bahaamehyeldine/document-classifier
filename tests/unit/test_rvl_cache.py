@@ -202,5 +202,10 @@ def test_training_script_runs_end_to_end_from_the_cache_and_resumes(dataset, tmp
         assert (artifacts / "eval" / "golden_images" / entry["file"]).is_file()
 
     first_sha = card["sha256"]  # a second run resumes from the finished checkpoint
+    # A checkpoint from an earlier branch also stored a "data" field; it must still resume.
+    ckpt_file = work / "smoke" / "last.pt"
+    ckpt = torch.load(ckpt_file, weights_only=False)
+    ckpt["config"]["data"] = "cache"
+    torch.save(ckpt, ckpt_file)
     train_local.main()
     assert json.loads((artifacts / "models" / "model_card.json").read_text())["sha256"] == first_sha
