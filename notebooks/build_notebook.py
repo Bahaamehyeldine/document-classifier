@@ -104,6 +104,35 @@ os.environ.update(BACKBONE=BACKBONE, EPOCHS=str(EPOCHS), BATCH_SIZE=str(BATCH_SI
 """)
 
 md("""
+## Optional: controlled experiments (validation data only)
+
+Evidence for the modelling choices: a linear probe, partial unfreeze and full fine-tune of
+ConvNeXt-Tiny, a repeat run with another seed (the noise floor) and ConvNeXt-Small, each trained
+on a 40k subset for 2 epochs and scored on the same 5,000 validation pages. **The test split is
+never read** (`train.py --experiment` returns before it), so nothing here can leak test data into a
+decision. Needs the dataset cache from the main cell. About 40-60 minutes on a T4; re-running
+skips finished experiments, so it is safe after a disconnect. Results land in
+`document-classifier/run/experiments/summary.md` on Drive.
+""")
+
+code("""
+# ==== Controlled experiments: validation only, resumable ====
+import os, subprocess
+from google.colab import drive
+
+drive.mount("/content/drive")
+DRIVE_DIR = "/content/drive/MyDrive/document-classifier"
+
+if os.path.isdir("/content/repo/.git"):
+    !git -C /content/repo pull -q --ff-only
+else:
+    !git clone -q --depth 1 https://github.com/Bahaamehyeldine/document-classifier.git /content/repo
+
+os.environ["DRIVE_DIR"] = DRIVE_DIR
+!bash /content/repo/scripts/run_experiments.sh
+""")
+
+md("""
 ## Download the artifacts
 
 The zip is already safe in Google Drive (`document-classifier/classifier_artifacts.zip`); this cell also downloads it

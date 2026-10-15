@@ -209,3 +209,90 @@ def test_training_script_runs_end_to_end_from_the_cache_and_resumes(dataset, tmp
     torch.save(ckpt, ckpt_file)
     train_local.main()
     assert json.loads((artifacts / "models" / "model_card.json").read_text())["sha256"] == first_sha
+
+
+def test_freeze_policies_freeze_the_expected_parameters():
+    from app.classifier.model import build_model
+    from scripts.train import apply_freeze
+
+    def trainable(policy):
+        model = build_model("convnext_tiny")  # random weights, nothing is downloaded
+        apply_freeze(model, policy)
+        return model, sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    full, n_none = trainable("none")
+    assert n_none == sum(p.numel() for p in full.parameters())
+    _, n_partial = trainable("partial")
+    probe, n_head = trainable("head")
+    assert n_head == sum(p.numel() for p in probe.classifier.parameters())  # the head only
+    assert n_head < n_partial < n_none
+
+    partial, _ = trainable("partial")
+    assert not any(p.requires_grad for p in partial.features[:6].parameters())
+    assert all(p.requires_grad for p in partial.features[6:].parameters())
+
+
+def test_experiment_mode_scores_validation_only_and_writes_no_artifacts(
+    dataset, tmp_path, monkeypatch
+):
+    """A comparison between settings must be decidable only on validation data."""
+    import json
+    import sys
+
+    from app.classifier.artifacts import MODEL_CARD_PATH, WEIGHTS_PATH
+    from app.classifier.model import build_model
+    from scripts import train as train_script
+
+    cache_dir, work = tmp_path / "cache", tmp_path / "work"
+    build(dataset, cache_dir)
+    stat = lambda p: p.stat().st_mtime_ns if p.exists() else None  # noqa: E731
+    before = (stat(WEIGHTS_PATH), stat(MODEL_CARD_PATH))
+
+    evaluated: list[int] = []
+    real_evaluate = train_script.evaluate
+
+    def spy(model, dl, device):
+        evaluated.append(len(dl.dataset))
+        return real_evaluate(model, dl, device)
+
+    monkeypatch.setattr(train_script, "evaluate", spy)
+    argv = [
+        "train", "--experiment", "probe", "--freeze", "head", "--epochs", "1",
+        "--train-subset", "16", "--val-subset", "8", "--device", "cpu", "--no-pretrained",
+        "--workers", "0", "--batch-size", "8", "--cache-dir", str(cache_dir),
+        "--work-dir", str(work), "--local-cache", str(tmp_path / "local"),
+    ]  # fmt: skip
+    monkeypatch.setattr(sys, "argv", argv)
+    train_script.main()
+
+    result = json.loads((work / "experiments" / "probe" / "experiment.json").read_text())
+    assert result["freeze"] == "head" and result["val_images"] == 8
+    assert 0.0 <= result["val_top1"] <= result["val_top5"] <= 1.0
+    head_only = sum(p.numel() for p in build_model("convnext_tiny").classifier.parameters())
+    assert result["trainable_parameters"] == head_only
+    assert evaluated and set(evaluated) == {
+        8
+    }  # only validation pages were ever scored, never test's 40
+    assert (stat(WEIGHTS_PATH), stat(MODEL_CARD_PATH)) == before  # no service artifact touched
+
+
+def test_experiment_summary_orders_by_validation_accuracy(tmp_path):
+    import json
+
+    from scripts.summarize_experiments import load, table
+
+    for name, acc in (("worse", 0.5), ("better", 0.9)):
+        folder = tmp_path / name
+        folder.mkdir()
+        (folder / "experiment.json").write_text(
+            json.dumps(
+                {
+                    "name": name, "backbone": "convnext_tiny", "freeze": "none", "lr": 4e-4,
+                    "seed": 42, "train_images": 100, "val_top1": acc, "val_top5": 0.99,
+                    "trainable_parameters": 10, "train_minutes": 1.0, "val_images": 50,
+                }
+            )
+        )  # fmt: skip
+    rows = load(tmp_path)
+    assert [r["name"] for r in rows] == ["better", "worse"]
+    assert "test split was not used" in table(rows)
