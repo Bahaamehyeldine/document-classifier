@@ -45,6 +45,20 @@ Every api response has an `X-Request-ID` header; the same id appears in the api 
 ## Golden-set test fails in CI
 Something changed what the model outputs: the weights, `preprocessing.py`, or torch / torchvision / Pillow versions. If intentional, retrain and commit the new weights, model card and golden set together.
 
+## Demonstrating the safety checks
+
+Each of these was run against this stack; the expected result is what was observed.
+
+| Check | How | Expected |
+|---|---|---|
+| Comes up from nothing | `docker compose down -v && docker compose up -d` | `api` is `(healthy)` within about 10 s; `migrate` and `vault-init` exit 0 |
+| Secrets discipline | `grep -ri password app/` | matches `app/infra/vault.py` only |
+| Vault down | `docker compose stop vault && docker compose restart api` | `api` exits (code 3) with `VaultUnavailableError ... Application startup failed` |
+| Golden gate | change a constant in `app/classifier/preprocessing.py` (for example the first `IMAGENET_MEAN` value) and run `pytest app/classifier/eval/golden.py` | many golden cases fail (19 of 51 for a 0.001 change); revert with `git checkout app/classifier/preprocessing.py` |
+| Missing or wrong weights | remove `classifier.pt`, or edit `model_card.json`'s `sha256` | api and worker refuse to start (`Classifier weights missing` / `SHA-256 mismatch`) |
+
+Note: Vault in dev mode keeps secrets in memory, so after stopping it run `docker compose up -d` again (the `vault-init` service re-seeds it).
+
 ## Colab keeps getting interrupted
 
 Run the notebook's **Run or resume** cell again; it continues from the first unfinished step. What survives where:

@@ -56,7 +56,7 @@ These rules are enforced by `tests/unit/test_architecture.py` (it parses every m
 
 ## Permissions
 
-Casbin RBAC model (`app/services/permission_service.py`): `p` rules map a role to `(object, action)`, `g` rules map a user id to a role. Rules are loaded from `casbin_rule` on every check (one small query), which is what makes a role change effective on the user's next request. The migration seeds the `p` rules; `g` rules are written by invitations, role changes and the `create-admin` CLI.
+Casbin RBAC model (`app/services/permission_service.py`): `p` rules map a role to `(object, action)`, `g` rules map a user id to a role. The enforcer is built per check with `casbin-sqlalchemy-adapter`, which reads `casbin_rule` on the request's own connection (so it sees that request's transaction). Loading on every check is what makes a role change effective on the user's next request. The migrations seed the `p` rules; `g` rules are written by invitations, role changes and the `create-admin` CLI through the repository (not through the adapter), so a role change commits atomically with its audit-log row.
 
 ## Caching
 

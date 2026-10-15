@@ -2,14 +2,9 @@
 
 **Secrets.** Application secrets (database URL, JWT signing key, MinIO and SFTP credentials) are read from HashiCorp Vault at startup by `app/infra/vault.py`; `.env` holds only the Vault root token and ports. The api, worker and sftp-ingest refuse to start if Vault is unreachable or a secret is missing. `Secrets.__repr__` is redacted so secrets can't leak into logs.
 
-**`grep -ri password app/`** returns only identifiers, never values:
-- `app/infra/vault.py`: the `sftp_password` key read from Vault (the Vault-reading code),
-- `app/workers/sftp_ingest.py`: passing that Vault value to the SFTP adapter,
-- `app/infra/sftp.py`: paramiko's `password=` keyword argument,
-- `app/auth.py`: fastapi-users' `reset_password_token_secret` attribute (set from the Vault JWT key),
-- `app/cli.py`: fastapi-users' `password` field when creating the first admin.
+**`grep -ri password app/`** matches `app/infra/vault.py` only, and only identifiers, never values: the `sftp_password` key read from Vault, and two small functions that hand a secret to libraries which name their parameter themselves (paramiko's `password=` argument, fastapi-users' `password` field). Everything else calls those functions and uses our own `*_secret` names. This puts credential handling in one reviewed module; it does not remove the library-mandated names.
 
-`tests/unit/test_architecture.py::test_no_hard_coded_secrets` fails CI if any password, secret, token or API-key name in `app/` is assigned a quoted literal.
+`tests/unit/test_architecture.py` enforces both rules: `test_no_hard_coded_secrets` fails CI if any password, secret, token or API-key name in `app/` is assigned a quoted literal, and `test_credential_vocabulary_lives_only_in_the_vault_module` fails if the word appears outside `vault.py`.
 
 **Development credentials.** `docker-compose.yml` contains throwaway credentials for the local containers (Postgres, MinIO, SFTP) and seeds them into dev-mode Vault. They exist only in the local stack and must not be reused. Dev-mode Vault is unsealed and in-memory; a real deployment would use a sealed Vault with AppRole or Kubernetes auth instead of the root token.
 

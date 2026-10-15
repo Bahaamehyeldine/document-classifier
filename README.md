@@ -130,14 +130,14 @@ Then verify with `pytest app/classifier/eval/golden.py tests/unit` and commit (w
 
 | Path | Budget (p95) | Measured p95 | p50 | n |
 |---|---|---|---|---|
-| API, cached read | < 50 ms | **7.6 ms** | 4.6 ms | 400 |
-| API, uncached read | < 200 ms | **9.8 ms** | 7.0 ms | 400 |
-| Inference per document (CPU, ConvNeXt Tiny, in the worker) | < 1.0 s | **215 ms** | 102 ms | 21 |
-| End to end: SFTP drop → visible in `GET /batches/{id}` (single document) | < 10 s | **3.8 s** | 3.8 s | 10 |
+| API, cached read | < 50 ms | **8.9 ms** | 3.9 ms | 400 |
+| API, uncached read | < 200 ms | **11.9 ms** | 7.4 ms | 400 |
+| Inference per document (CPU, ConvNeXt Tiny, in the worker) | < 1.0 s | **84 ms** | 67 ms | 20 |
+| End to end: SFTP drop → visible in `GET /batches/{id}` (single document) | < 10 s | **3.8 s** | 3.7 s | 20 |
 
-**How these were measured** (`scripts/latency_check.py`, run against the compose stack): on a Windows 11 laptop (Intel i9-14900HX, 16 GB) with Docker Desktop on WSL2, nothing else heavy running. Times are client side over localhost, so they include HTTP and JSON but no real network. Cached reads are requests that returned `X-FastAPI-Cache: HIT`; uncached reads send `Cache-Control: no-cache` so the database is queried. The inference figure is the worker's own per-document `latency_ms` read back from the `prediction` table (the first document, which loads kernels, took 409 ms; the same model replayed in a host process over the 50 golden pages gave a p95 of 38 ms). The end-to-end figure includes the SFTP ingest poll interval (about 3.7 s of the total).
+**How these were measured** (`scripts/latency_check.py`, run against the compose stack, measured after the Casbin adapter change): on a Windows 11 laptop (Intel i9-14900HX, 16 GB) with Docker Desktop on WSL2, nothing else heavy running. Times are client side over localhost, so they include HTTP and JSON but no real network. The 400 read samples are 100 per endpoint over `/me`, `/batches`, `/batches/{id}` and `/predictions/recent`. Cached reads are requests that returned `X-FastAPI-Cache: HIT`; uncached reads send `Cache-Control: no-cache` so the database is queried (authentication and the permission check run in both). The inference figure is the worker's own per-document `latency_ms` read back from the `prediction` table (max 117 ms; the same model replayed in a host process over the 50 golden pages gave a p95 of 49 ms). The end-to-end figure includes the SFTP ingest poll interval (about 3.7 s of the total).
 
-**Caveats, stated plainly:** the database held only about a dozen batches, so read latencies say nothing about large tables; the inference sample is small (21 documents) and one machine; the figures are not a load test. Each request log line carries `latency_ms` and the cache status, and each prediction stores its inference latency, so the same numbers can be recomputed from a running system. The smoke test asserts the end-to-end budget.
+**Caveats, stated plainly:** the database held only about two dozen batches, so read latencies say nothing about large tables; the inference sample is small (20 documents) and one machine; the figures are not a load test. Each request log line carries `latency_ms` and the cache status, and each prediction stores its inference latency, so the same numbers can be recomputed from a running system. The smoke test asserts the end-to-end budget.
 
 ## Development
 
