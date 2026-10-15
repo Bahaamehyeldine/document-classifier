@@ -158,10 +158,12 @@ def main() -> int:
     results = {}
     with httpx.Client(base_url=args.api, timeout=30) as client:
         login(client, args.email, os.environ["LATENCY_PASSWORD"])
-        print("api reads (cached and uncached)...")
-        results["cached"], results["uncached"] = measure_reads(client, args.reads)
+        # Drops first: they create batches, so /batches/{id} exists for the read measurements
+        # (on an empty database only three of the four cached endpoints could be sampled).
         print("end to end (SFTP drop -> done)...")
         results["end_to_end"] = measure_end_to_end(client, args)
+        print("api reads (cached and uncached)...")
+        results["cached"], results["uncached"] = measure_reads(client, args.reads)
     # Last on purpose: importing torch and running the model leaves busy OpenMP worker threads
     # in this process, which inflated the HTTP timings above by ~10x when it ran first.
     print("inference (CPU, golden pages)...")
