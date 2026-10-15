@@ -27,8 +27,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[Any, uuid.UUID]):
     def __init__(self, session: AsyncSession, token_secret: str):
         super().__init__(make_user_db(session))
         self.session = session
-        self.reset_password_token_secret = token_secret
-        self.verification_token_secret = token_secret
+        self.verification_token_secret = token_secret  # the reset-secret flow is not exposed
 
     async def on_after_register(self, user, request: Request | None = None) -> None:
         role = await user_service.accept_invitation(self.session, user, request_id_var.get())

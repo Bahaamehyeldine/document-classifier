@@ -4,10 +4,22 @@ from __future__ import annotations
 
 import uuid
 
+from casbin_sqlalchemy_adapter import Adapter
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.db.models import CasbinRule
+
+
+def casbin_adapter(sync_session: Session) -> Adapter:
+    """casbin-sqlalchemy-adapter reading `casbin_rule` on the caller's own connection.
+
+    Called inside `AsyncSession.run_sync`, so policy reads see the request's transaction
+    (including its uncommitted role changes) and no second connection is opened. The
+    adapter must not create tables: the schema belongs to Alembic.
+    """
+    return Adapter(sync_session.connection(), db_class=CasbinRule, create_all_models=False)
 
 
 async def count_permission_rules(session: AsyncSession) -> int:
@@ -17,13 +29,6 @@ async def count_permission_rules(session: AsyncSession) -> int:
         )
         or 0
     )
-
-
-async def load_rules(session: AsyncSession) -> list[tuple[str, str, str, str | None]]:
-    rows = await session.execute(
-        select(CasbinRule.ptype, CasbinRule.v0, CasbinRule.v1, CasbinRule.v2)
-    )
-    return [tuple(r) for r in rows.all()]
 
 
 async def roles_for(session: AsyncSession, user_id: uuid.UUID) -> list[str]:

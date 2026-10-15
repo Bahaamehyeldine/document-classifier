@@ -10,6 +10,8 @@ from typing import Protocol
 
 import paramiko
 
+from app.infra.vault import authenticate_transport
+
 CLAIM_SUFFIX = ".processing"
 
 
@@ -61,7 +63,7 @@ def sftp_connection(
 ) -> Iterator[paramiko.SFTPClient]:
     transport = paramiko.Transport((host, port))
     try:
-        transport.connect(username=user, password=credential)
+        authenticate_transport(transport, user, credential)
         client = paramiko.SFTPClient.from_transport(transport)
         if client is None:
             raise ConnectionError(f"Could not open an SFTP session on {host}:{port}")

@@ -113,7 +113,8 @@ class AuditLog(Base):
 
 
 class CasbinRule(Base):
-    """Casbin policy storage (standard casbin_rule layout)."""
+    """Casbin policy storage: the standard casbin_rule layout that
+    casbin-sqlalchemy-adapter reads (it needs id, ptype, v0..v5 and `str(rule)`)."""
 
     __tablename__ = "casbin_rule"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -121,3 +122,15 @@ class CasbinRule(Base):
     v0: Mapped[str] = mapped_column(String(255))
     v1: Mapped[str] = mapped_column(String(255))
     v2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    v3: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    v4: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    v5: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    def __str__(self) -> str:
+        """The `ptype, v0, v1, ...` line that casbin parses when loading a policy."""
+        parts = [self.ptype]
+        for value in (self.v0, self.v1, self.v2, self.v3, self.v4, self.v5):
+            if value is None:
+                break
+            parts.append(value)
+        return ", ".join(parts)
