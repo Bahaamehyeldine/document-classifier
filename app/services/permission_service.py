@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import casbin
 from casbin.model import Model
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.repositories import policy_repository
 
@@ -42,30 +43,33 @@ class Actor:
     name: str  # email for users, "system:<service>" for workers
 
 
-def _enforcer(rules: list[tuple[str, str, str, str | None]]) -> casbin.Enforcer:
+def _enforcer(sync_session: Session) -> casbin.Enforcer:
+    """A fresh enforcer; constructing it with the adapter loads the current policy."""
     model = Model()
     model.load_model_from_text(RBAC_MODEL)
-    enforcer = casbin.Enforcer(model)
-    for ptype, v0, v1, v2 in rules:
-        if ptype == "p":
-            enforcer.add_policy(v0, v1, v2)
-        elif ptype == "g":
-            enforcer.add_grouping_policy(v0, v1)
-    return enforcer
+    return casbin.Enforcer(model, policy_repository.casbin_adapter(sync_session))
 
 
 async def is_allowed(session: AsyncSession, user_id: uuid.UUID, obj: str, act: str) -> bool:
-    enforcer = _enforcer(await policy_repository.load_rules(session))
-    return enforcer.enforce(str(user_id), obj, act)
+    # The adapter is synchronous; run_sync executes it on the session's own connection.
+    return await session.run_sync(lambda s: _enforcer(s).enforce(str(user_id), obj, act))
+
+
+def _roles_and_permissions(
+    sync_session: Session, user_id: uuid.UUID
+) -> tuple[list[str], list[tuple[str, str]]]:
+    enforcer = _enforcer(sync_session)
+    roles = sorted(enforcer.get_roles_for_user(str(user_id)))
+    perms = sorted(
+        {(p[1], p[2]) for role in roles for p in enforcer.get_permissions_for_user(role)}
+    )
+    return roles, perms
 
 
 async def permissions_for(
     session: AsyncSession, user_id: uuid.UUID
 ) -> tuple[list[str], list[tuple[str, str]]]:
-    rules = await policy_repository.load_rules(session)
-    roles = sorted(v1 for p, v0, v1, _ in rules if p == "g" and v0 == str(user_id))
-    perms = sorted({(v1, v2) for p, v0, v1, v2 in rules if p == "p" and v0 in roles and v2})
-    return roles, perms
+    return await session.run_sync(_roles_and_permissions, user_id)
 
 
 async def policy_is_seeded(session: AsyncSession) -> bool:

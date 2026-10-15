@@ -15,7 +15,7 @@ SECRETS = Secrets(
     jwt_secret="k" * 40,
     minio_access_key="x",
     minio_secret_key="y",
-    sftp_password="z",
+    sftp_secret="z",
 )
 
 

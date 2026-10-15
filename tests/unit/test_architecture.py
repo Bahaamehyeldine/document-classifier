@@ -69,3 +69,16 @@ def test_no_hard_coded_secrets():
         if literal.search(line)
     ]
     assert hits == []
+
+
+def test_credential_vocabulary_lives_only_in_the_vault_module():
+    """The brief: `grep -ri password app/` returns nothing outside Vault-reading code."""
+    vault = APP / "infra" / "vault.py"
+    hits = [
+        f"{f.relative_to(APP)}:{n}: {line.strip()}"
+        for f in _py("")
+        if f != vault
+        for n, line in enumerate(f.read_text().splitlines(), 1)
+        if "password" in line.lower()
+    ]
+    assert hits == []

@@ -43,6 +43,7 @@ torchvision==0.29.0
 pillow==12.2.0
 pytest==9.1.1
 casbin==1.43.0
+casbin-sqlalchemy-adapter==1.4.0
 hvac==2.4.0
 redis==8.1.0
 rq==2.12.0

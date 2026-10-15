@@ -103,7 +103,7 @@ async def client(clean_db, fakes):
         jwt_secret="test-signing-key-0123456789abcdef-0123",
         minio_access_key="x",
         minio_secret_key="y",
-        sftp_password="z",
+        sftp_secret="z",
     )
     app = create_app(
         settings,

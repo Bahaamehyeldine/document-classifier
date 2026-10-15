@@ -93,7 +93,7 @@ def main() -> int:
     while True:
         try:
             with sftp_connection(
-                s.sftp_host, s.sftp_port, s.sftp_user, ctx.secrets.sftp_password
+                s.sftp_host, s.sftp_port, s.sftp_user, ctx.secrets.sftp_secret
             ) as sftp:
                 folder = SftpDropFolder(sftp, s.sftp_dir)
                 backoff = 1.0

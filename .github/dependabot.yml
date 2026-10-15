@@ -16,6 +16,15 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # The golden-set replay pins exact float32 outputs. These change them, so they are bumped
+      # on purpose together with a re-recorded golden set, never by an automatic PR.
+      - dependency-name: "torch"
+      - dependency-name: "torchvision"
+      - dependency-name: "pillow"
+      # SQLAlchemy 2.1 is a feature release with behaviour changes; take it deliberately.
+      - dependency-name: "sqlalchemy"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -24,3 +33,7 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # The brief requires Python 3.11.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

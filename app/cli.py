@@ -19,8 +19,7 @@ from fastapi_users.exceptions import UserAlreadyExists
 from app.auth import UserManager
 from app.core.config import get_settings
 from app.db.session import dispose_engine, init_engine, sessionmaker
-from app.domain.schemas import UserCreate
-from app.infra.vault import load_secrets
+from app.infra.vault import load_secrets, new_user_with_secret
 from app.repositories.user_repository import get_user_by_email
 from app.services import user_service
 
@@ -33,7 +32,7 @@ async def create_admin(email: str, secret: str) -> str:
         async with sessionmaker()() as session:
             manager = UserManager(session, secrets.jwt_secret)
             try:
-                user = await manager.create(UserCreate(email=email, password=secret))
+                user = await manager.create(new_user_with_secret(email, secret))
             except UserAlreadyExists:
                 user = await get_user_by_email(session, email)
             await user_service.grant_bootstrap_admin(session, user)
