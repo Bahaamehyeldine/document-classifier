@@ -53,8 +53,15 @@ jobs:
       TEST_REDIS_URL: redis://localhost:6379/15
     steps:
       - uses: actions/checkout@v7
+      # The weights are a 107 MB git LFS object. Cache it by its pointer file (which changes
+      # only when the model does) so a run downloads it once, not on every push and PR event.
+      - name: Cache the model weights (git LFS objects)
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('app/classifier/models/classifier.pt') }}
+      - name: Fetch the model weights
+        run: git lfs pull
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -74,8 +81,13 @@ jobs:
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v7
+      - name: Cache the model weights (git LFS objects)
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('app/classifier/models/classifier.pt') }}
+      - name: Fetch the model weights
+        run: git lfs pull
       - name: Run smoke test
         # The default `bash -e` has no pipefail, so `| tee` would report tee's success even
         # when the smoke test fails. That hid a real failure here once.

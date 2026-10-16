@@ -66,7 +66,14 @@ WEIGHTS_ENUM = {
     "convnext_tiny": "ConvNeXt_Tiny_Weights.IMAGENET1K_V1",
     "convnext_small": "ConvNeXt_Small_Weights.IMAGENET1K_V1",
 }
-FREEZE_POLICY = "none (full fine-tune, all layers trainable)"
+FREEZE_POLICIES = {
+    "none": "none (full fine-tune, all layers trainable)",
+    "partial": "partial unfreeze (last stage and the head trainable, earlier stages frozen)",
+    "head": "linear probe (backbone frozen, only the classification head trained)",
+}
+# torchvision ConvNeXt: features = stem, then (stage, downsample) pairs, ending in the last
+# stage at index 7. This many leading modules of `features` stay frozen per policy.
+FROZEN_FEATURE_MODULES = {"none": 0, "partial": 6, "head": 8}
 
 # Light, layout-preserving augmentation for training only. Resizing first means the
 # affine warp runs on 224 x 224 pixels rather than the ~1000 x 750 scan, which makes
@@ -107,6 +114,24 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch-size", type=int, default=96)
     p.add_argument("--lr", type=float, default=4e-4)
     p.add_argument("--weight-decay", type=float, default=0.05)
+    p.add_argument(
+        "--freeze",
+        choices=sorted(FREEZE_POLICIES),
+        default="none",
+        help="which parts of the pretrained backbone stay frozen (default none = full fine-tune)",
+    )
+    p.add_argument(
+        "--val-subset",
+        type=int,
+        help="evaluate on N validation images, the same N whatever the seed (for fast experiments)",
+    )
+    p.add_argument(
+        "--experiment",
+        metavar="NAME",
+        help="validation-only run for comparing settings: trains (use --train-subset), writes "
+        "experiment.json under --work-dir/experiments/NAME and stops. It never evaluates the "
+        "test split and never writes service artifacts, so it cannot leak test data into a choice.",
+    )
     p.add_argument(
         "--workers",
         type=int,
@@ -198,6 +223,19 @@ def loader(rows, train: bool, args, cache: CachedRVL | None = None) -> DataLoade
         persistent_workers=args.workers > 0,
         prefetch_factor=2 if args.workers > 0 else None,
     )
+
+
+def apply_freeze(model: torch.nn.Module, policy: str) -> None:
+    for module in model.features[: FROZEN_FEATURE_MODULES[policy]]:
+        for param in module.parameters():
+            param.requires_grad = False
+
+
+def set_train_mode(model: torch.nn.Module, policy: str) -> None:
+    """Train mode, except frozen stages: stochastic depth would still perturb them."""
+    model.train()
+    for module in model.features[: FROZEN_FEATURE_MODULES[policy]]:
+        module.eval()
 
 
 def amp_dtype(device: str) -> torch.dtype | None:
@@ -317,9 +355,17 @@ def main() -> None:
         args.epochs = 1
     elif args.train_subset:
         train_rows = random.sample(train_rows, args.train_subset)
+    if args.val_subset and not args.smoke:
+        # A fixed seed, not args.seed: every experiment must be scored on the same pages.
+        val_rows = random.Random(0).sample(val_rows, min(args.val_subset, len(val_rows)))
     print(f"train {len(train_rows):,}  val {len(val_rows):,}  test {len(test_rows):,}")
 
-    work = args.work_dir / ("smoke" if args.smoke else args.backbone)
+    if args.smoke:
+        work = args.work_dir / "smoke"
+    elif args.experiment:
+        work = args.work_dir / "experiments" / args.experiment
+    else:
+        work = args.work_dir / args.backbone
     work.mkdir(parents=True, exist_ok=True)
     models_dir = work / "artifacts" / "models" if args.smoke else MODELS_DIR
     eval_dir = work / "artifacts" / "eval" if args.smoke else EVAL_DIR
@@ -327,18 +373,25 @@ def main() -> None:
     device = args.device
     model = getattr(models, args.backbone)(weights=None if args.no_pretrained else "IMAGENET1K_V1")
     model.classifier[-1] = torch.nn.Linear(model.classifier[-1].in_features, NUM_CLASSES)
+    apply_freeze(model, args.freeze)
     model = model.to(device).to(memory_format=torch.channels_last)
 
     train_dl = loader(train_rows, True, args, cache)
     val_dl = loader(val_rows, False, args, cache)
     test_dl = loader(test_rows, False, args, cache)
 
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    opt = torch.optim.AdamW(trainable, lr=args.lr, weight_decay=args.weight_decay)
     total_steps = args.epochs * len(train_dl)
-    # 5 % warm-up, but at least a few steps so very short (smoke) runs stay valid. The cap
-    # keeps the warm-up phase shorter than the whole run (OneCycleLR divides by zero otherwise).
+    # 5 % warm-up, but at least a few steps so very short (smoke) runs stay valid. OneCycleLR
+    # divides by zero when a phase is zero steps long, which happens below 4 total steps, so
+    # the schedule is laid out over at least 4 steps (a run that short just never reaches the end).
+    schedule_steps = max(total_steps, 4)
     sched = torch.optim.lr_scheduler.OneCycleLR(
-        opt, max_lr=args.lr, total_steps=total_steps, pct_start=min(0.5, max(0.05, 3 / total_steps))
+        opt,
+        max_lr=args.lr,
+        total_steps=schedule_steps,
+        pct_start=min(0.5, max(0.05, 3 / schedule_steps)),
     )
     loss_fn = torch.nn.CrossEntropyLoss(label_smoothing=0.1)
     precision = amp_dtype(device)
@@ -357,6 +410,8 @@ def main() -> None:
         "train_images": len(train_rows),
         "lr": args.lr,
     }
+    if args.freeze != "none":  # only when set, so checkpoints from before this option still resume
+        run_config["freeze"] = args.freeze
     if ckpt_path.exists():
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         # Checkpoints from an earlier branch also recorded where the data came from ("data").
@@ -405,7 +460,7 @@ def main() -> None:
     while global_step < total_steps:
         epoch = global_step // steps_per_epoch
         done_in_epoch = global_step % steps_per_epoch
-        model.train()
+        set_train_mode(model, args.freeze)
         bar = tqdm(
             total=steps_per_epoch, initial=done_in_epoch, desc=f"epoch {epoch + 1}/{args.epochs}"
         )
@@ -433,6 +488,36 @@ def main() -> None:
             torch.save(model.state_dict(), best_path)
         save_checkpoint()
     train_minutes = (elapsed + time.time() - t0) / 60
+
+    # ---- experiment: validation numbers only, then stop -----------------------
+    # This returns before the test split is touched or any service artifact is written, so a
+    # comparison between settings can only ever be decided on validation data.
+    if args.experiment:
+        model.load_state_dict(torch.load(best_path, map_location=device, weights_only=True))
+        p, yv, _ = evaluate(model, val_dl, device)
+        result = {
+            "name": args.experiment,
+            "backbone": args.backbone,
+            "freeze": args.freeze,
+            "epochs": args.epochs,
+            "batch_size": args.batch_size,
+            "lr": args.lr,
+            "seed": args.seed,
+            "train_images": len(train_rows),
+            "val_images": int(len(yv)),
+            "trainable_parameters": sum(t.numel() for t in trainable),
+            "val_top1": topk(p, yv, 1),
+            "val_top5": topk(p, yv, 5),
+            "train_minutes": round(train_minutes, 1),
+            "precision": precision_name,
+            "git": git,
+        }
+        (work / "experiment.json").write_text(json.dumps(result, indent=2) + "\n")
+        print(
+            f"\nEXPERIMENT {args.experiment}: val top-1 {result['val_top1']:.4f}  "
+            f"top-5 {result['val_top5']:.4f}  (n={result['val_images']:,}, test split not used)"
+        )
+        return
 
     # ---- full test evaluation, once, on the best checkpoint -------------------
     model.load_state_dict(torch.load(best_path, map_location=device, weights_only=True))
@@ -538,7 +623,7 @@ def main() -> None:
         "name": "rvl-cdip-document-classifier",
         "backbone": args.backbone,
         "pretrained_weights": WEIGHTS_ENUM[args.backbone],
-        "freeze_policy": FREEZE_POLICY,
+        "freeze_policy": FREEZE_POLICIES[args.freeze],
         "classes": list(RVL_CDIP_CLASSES),
         "input": {
             "size": INPUT_SIZE,

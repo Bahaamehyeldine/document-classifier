@@ -73,6 +73,20 @@ Run the notebook's **Run or resume** cell again; it continues from the first unf
 - **Checkpoint:** every 300 steps and at each epoch, on Drive. The run only resumes with the settings it was saved with.
 - **Test numbers:** the model card reports the official test score (the quality gate) and a leakage-controlled score from `scripts/audit_dataset.py`. The official splits are never modified.
 
+## Compare training choices (optional, Colab)
+
+`scripts/run_experiments.sh` (or the notebook's optional "controlled experiments" cell) trains six configurations on a 40k-image subset for 2 epochs: three freeze policies (`head`, `partial`, `none`), two head learning rates, two seeds and a `convnext_small` backbone. Each is scored on a fixed 5000-image **validation** subset only: the test split is never touched and no model artifacts are written. Finished runs are skipped on re-run; the table lands in `summary.md` (`scripts/summarize_experiments.py`). Record the winner in DECISIONS.md.
+
+## Docker Desktop won't start on Windows (error 1920)
+
+Docker Desktop leaves `dockerInference`, `userAnalyticsOtlpHttp.sock` and `engine.sock` under `%LOCALAPPDATA%\Docker\run` and `%LOCALAPPDATA%\docker-secrets-engine`. Windows cannot list or delete them, so the next start crashes with "The file cannot be accessed by the system". A force-kill can also leave `docker_data.vhdx` attached. From PowerShell:
+
+```powershell
+.\scripts\windows\start-docker-desktop.ps1
+```
+
+It stops half-started Docker processes, terminates the `docker-desktop` WSL distro and unmounts its disk, deletes the sockets from inside WSL, restarts Docker Desktop and waits for the engine.
+
 ## Train the model on a local GPU
 
 Tested path: Windows + WSL2 (Ubuntu) + NVIDIA laptop GPU. The Windows NVIDIA driver is enough; do not install a driver inside WSL.
