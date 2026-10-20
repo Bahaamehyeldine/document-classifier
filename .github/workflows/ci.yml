@@ -56,7 +56,7 @@ jobs:
       # The weights are a 107 MB git LFS object. Cache it by its pointer file (which changes
       # only when the model does) so a run downloads it once, not on every push and PR event.
       - name: Cache the model weights (git LFS objects)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .git/lfs
           key: lfs-${{ hashFiles('app/classifier/models/classifier.pt') }}
@@ -82,7 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Cache the model weights (git LFS objects)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .git/lfs
           key: lfs-${{ hashFiles('app/classifier/models/classifier.pt') }}
